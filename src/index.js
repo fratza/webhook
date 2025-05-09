@@ -122,6 +122,12 @@ app.post("/api/trigger", async (req, res) => {
   });
 });
 
+// Simple webhook endpoint that returns the received body
+app.post('/api/webhook', (req, res) => {
+  console.log('Received webhook data:', req.body);
+  res.json(req.body);
+});
+
 app.listen(PORT, () => {
   console.log(`Webhook middleware running on port ${PORT}`);
 });
