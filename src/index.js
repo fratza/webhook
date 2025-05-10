@@ -123,8 +123,14 @@ app.post("/api/trigger", async (req, res) => {
 });
 
 // Simple webhook endpoint that returns the received body
-app.post('/api/webhook', (req, res) => {
-  console.log('Received webhook data:', req.body);
+app.post("/api/webhook", (req, res) => {
+  const { task } = req.body;
+  if (task && task.capturedLists && task.capturedLists.Reviews) {
+    console.log(
+      "Reviews:",
+      JSON.stringify(task.capturedLists.Reviews, null, 2)
+    );
+  }
   res.json(req.body);
 });
 
