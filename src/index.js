@@ -169,10 +169,14 @@ app.post("/api/trigger", async (req, res) => {
  */
 app.post("/api/webhook", async (req, res) => {
   try {
+    console.log("[Webhook] Starting to process incoming request...");
     const incomingData = req.body;
     const timestamp = admin.firestore.Timestamp.fromDate(new Date());
 
-    console.log("Received webhook data:", incomingData);
+    console.log(
+      "[Webhook] Received data:",
+      JSON.stringify(incomingData, null, 2)
+    );
 
     // Safely access and log the capturedLists
     const capturedLists = incomingData?.task?.capturedLists;
@@ -193,38 +197,52 @@ app.post("/api/webhook", async (req, res) => {
 
     const batch = db.batch();
 
+    console.log("[Webhook] Processing captured data...");
+
     // Store capturedTexts
     if (task.capturedTexts) {
+      console.log("[Texts] Processing captured texts...");
       const textsRef = db.collection("captured_texts").doc(taskId);
+      const textsData = convertToFirestoreFormat(task.capturedTexts);
       batch.set(textsRef, {
         taskId,
         createdAt: timestamp,
-        data: convertToFirestoreFormat(task.capturedTexts),
+        data: textsData,
       });
+      console.log(`[Texts] Prepared for storage with ID: ${taskId}`);
     }
 
     // Store capturedScreenshots
     if (task.capturedScreenshots) {
+      console.log("[Screenshots] Processing captured screenshots...");
       const screenshotsRef = db.collection("captured_screenshots").doc(taskId);
+      const screenshotsData = convertToFirestoreFormat(
+        task.capturedScreenshots
+      );
       batch.set(screenshotsRef, {
         taskId,
         createdAt: timestamp,
-        data: convertToFirestoreFormat(task.capturedScreenshots),
+        data: screenshotsData,
       });
+      console.log(`[Screenshots] Prepared for storage with ID: ${taskId}`);
     }
 
     // Store capturedLists
     if (task.capturedLists) {
+      console.log("[Lists] Processing captured lists...");
       const listsRef = db.collection("captured_lists").doc(taskId);
+      const listsData = convertToFirestoreFormat(task.capturedLists);
       batch.set(listsRef, {
         taskId,
         createdAt: timestamp,
-        data: convertToFirestoreFormat(task.capturedLists),
+        data: listsData,
       });
+      console.log(`[Lists] Prepared for storage with ID: ${taskId}`);
     }
 
-    // Commit all writes
+    console.log("[Firestore] Committing batch write...");
     await batch.commit();
+    console.log("[Firestore] Batch write successful!");
 
     // Return response
     res.json({
@@ -269,9 +287,15 @@ app.listen(PORT, () => {
  * @returns {Object} Returns converted data
  */
 function convertToFirestoreFormat(data) {
-  if (data === null || data === undefined) return null;
+  console.log("[Convert] Starting data conversion...");
+
+  if (data === null || data === undefined) {
+    console.log("[Convert] Null or undefined data detected");
+    return null;
+  }
 
   if (data instanceof Date) {
+    console.log("[Convert] Converting Date to Timestamp");
     return admin.firestore.Timestamp.fromDate(data);
   }
 
