@@ -168,6 +168,8 @@ app.post("/api/webhook", async (req, res) => {
     const incomingData = req.body;
     const timestamp = admin.firestore.Timestamp.fromDate(new Date());
 
+    console.log("Received webhook data:", incomingData);
+
     // Create a structured document with metadata
     const structuredData = {
       raw: incomingData, // Store original data
@@ -180,6 +182,8 @@ app.post("/api/webhook", async (req, res) => {
       },
       processed: convertToFirestoreFormat(incomingData),
     };
+
+    console.log("Structured data:", structuredData);
 
     // Determine collection based on incoming data structure or headers
     const collectionName = req.headers["x-webhook-type"] || "webhooks";
