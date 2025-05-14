@@ -170,43 +170,66 @@ app.post("/api/webhook", async (req, res) => {
 
     console.log("Received webhook data:", incomingData);
 
-    // Create a structured document with metadata
-    const structuredData = {
-      raw: incomingData, // Store original data
-      metadata: {
-        receivedAt: timestamp,
-        source: req.headers["user-agent"] || "unknown",
-        ipAddress: req.ip,
-        contentType: req.headers["content-type"],
-        endpoint: "/api/webhook",
-      },
-      processed: convertToFirestoreFormat(incomingData),
-    };
+    if (incomingData.capturedLists) {
+      console.log("Captured Lists:", JSON.stringify(capturedLists, null, 2));
+    } else {
+      console.log("No capturedLists found in the webhook data.");
+    }
 
-    console.log("Structured data:", structuredData);
+    // Extract task data
+    const { task } = incomingData;
+    const taskId = task?.id;
 
-    // Determine collection based on incoming data structure or headers
-    const collectionName = req.headers["x-webhook-type"] || "webhooks";
-    const docRef = db.collection(collectionName).doc();
+    if (!taskId) {
+      throw new Error("Task ID is required");
+    }
 
-    // Save to Firestore
-    await docRef.set(structuredData);
+    const batch = db.batch();
 
-    // Log structured data
-    console.log(
-      "Processed webhook data:",
-      JSON.stringify(structuredData, null, 2)
-    );
+    // Store capturedTexts
+    if (task.capturedTexts) {
+      const textsRef = db.collection("captured_texts").doc(taskId);
+      batch.set(textsRef, {
+        taskId,
+        createdAt: timestamp,
+        data: convertToFirestoreFormat(task.capturedTexts),
+      });
+    }
+
+    // Store capturedScreenshots
+    if (task.capturedScreenshots) {
+      const screenshotsRef = db.collection("captured_screenshots").doc(taskId);
+      batch.set(screenshotsRef, {
+        taskId,
+        createdAt: timestamp,
+        data: convertToFirestoreFormat(task.capturedScreenshots),
+      });
+    }
+
+    // Store capturedLists
+    if (task.capturedLists) {
+      const listsRef = db.collection("captured_lists").doc(taskId);
+      batch.set(listsRef, {
+        taskId,
+        createdAt: timestamp,
+        data: convertToFirestoreFormat(task.capturedLists),
+      });
+    }
+
+    // Commit all writes
+    await batch.commit();
 
     // Return response
     res.json({
       success: true,
-      data: structuredData,
+      taskId,
       meta: {
-        id: docRef.id,
-        collection: collectionName,
         processedAt: timestamp.toDate().toISOString(),
-        path: `${collectionName}/${docRef.id}`,
+        collections: [
+          "captured_texts",
+          "captured_screenshots",
+          "captured_lists",
+        ],
       },
     });
   } catch (error) {
