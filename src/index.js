@@ -170,7 +170,10 @@ app.post("/api/webhook", async (req, res) => {
 
     console.log("Received webhook data:", incomingData);
 
-    if (incomingData.capturedLists) {
+    // Safely access and log the capturedLists
+    const capturedLists = incomingData?.task?.capturedLists;
+
+    if (capturedLists) {
       console.log("Captured Lists:", JSON.stringify(capturedLists, null, 2));
     } else {
       console.log("No capturedLists found in the webhook data.");
