@@ -167,15 +167,13 @@ app.post("/api/trigger", async (req, res) => {
  *
  * @returns {200} Returns 200 with processed webhook data
  */
-app.post("/:webhookId", async (req, res) => {
+app.post("/api/webhook/:webhookId", async (req, res) => {
   const webhookId = req.params.webhookId;
-  const fullPath = req.originalUrl; // e.g. "/api/webhook/browseAI" or "/api/webhook/otherPath"
   console.log("[Webhook] Incoming request at URL:", webhookId);
 
   try {
     if (webhookId === "browseAI") {
       // === Your BrowseAI-specific webhook logic ===
-      console.log("URL PATH: ", fullPath);
       console.log("[BrowseAI Webhook] Starting to process incoming request...");
       const incomingData = req.body;
       const timestamp = admin.firestore.Timestamp.fromDate(new Date());
