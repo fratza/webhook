@@ -167,12 +167,13 @@ app.post("/api/trigger", async (req, res) => {
  *
  * @returns {200} Returns 200 with processed webhook data
  */
-app.post("/api/webhook/*", async (req, res) => {
+app.post("/:webhookId", async (req, res) => {
+  const webhookId = req.params.webhookId;
   const fullPath = req.originalUrl; // e.g. "/api/webhook/browseAI" or "/api/webhook/otherPath"
-  console.log("[Webhook] Incoming request at URL:", fullPath);
+  console.log("[Webhook] Incoming request at URL:", webhookId);
 
   try {
-    if (fullPath === "/api/webhook/browseAI") {
+    if (webhookId === "browseAI") {
       // === Your BrowseAI-specific webhook logic ===
       console.log("URL PATH: ", fullPath);
       console.log("[BrowseAI Webhook] Starting to process incoming request...");
