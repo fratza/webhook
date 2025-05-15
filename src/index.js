@@ -197,6 +197,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
         const textsData = convertToFirestoreFormat(task.capturedTexts);
         batch.set(textsRef, {
           taskId,
+          originUrl: task.originUrl,
           createdAt: timestamp,
           data: textsData,
         });
@@ -211,6 +212,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
         );
         batch.set(screenshotsRef, {
           taskId,
+          originUrl: task.originUrl,
           createdAt: timestamp,
           data: screenshotsData,
         });
@@ -221,6 +223,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
         const listsData = convertToFirestoreFormat(task.capturedLists);
         batch.set(listsRef, {
           taskId,
+          originUrl: task.originUrl,
           createdAt: timestamp,
           data: listsData,
         });
@@ -244,7 +247,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
     }
 
     // === Default webhook handler for other paths (or fallback) ===
-    if (fullPath === "/api/webhook") {
+    if (webhookId === "default") {
       console.log("DEFAULT");
       return res.json({
         success: true,
