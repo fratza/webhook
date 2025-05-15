@@ -177,6 +177,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
       console.log("[BrowseAI Webhook] Starting to process incoming request...");
       const incomingData = req.body;
       const timestamp = admin.firestore.Timestamp.fromDate(new Date());
+      const originUrl = task.originUrl || "unknown";
 
       console.log(
         "[BrowseAI Webhook] Received data:",
@@ -197,7 +198,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
         const textsData = convertToFirestoreFormat(task.capturedTexts);
         batch.set(textsRef, {
           taskId,
-          originUrl: task.originUrl,
+          originUrl: originUrl,
           createdAt: timestamp,
           data: textsData,
         });
@@ -212,7 +213,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
         );
         batch.set(screenshotsRef, {
           taskId,
-          originUrl: task.originUrl,
+          originUrl: originUrl,
           createdAt: timestamp,
           data: screenshotsData,
         });
@@ -223,7 +224,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
         const listsData = convertToFirestoreFormat(task.capturedLists);
         batch.set(listsRef, {
           taskId,
-          originUrl: task.originUrl,
+          originUrl: originUrl,
           createdAt: timestamp,
           data: listsData,
         });
