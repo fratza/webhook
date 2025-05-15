@@ -177,7 +177,6 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
       console.log("[BrowseAI Webhook] Starting to process incoming request...");
       const incomingData = req.body;
       const timestamp = admin.firestore.Timestamp.fromDate(new Date());
-      const originUrl = task.originUrl || "unknown";
 
       console.log(
         "[BrowseAI Webhook] Received data:",
@@ -190,6 +189,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
         throw new Error("Task ID is required");
       }
       const taskId = task.id;
+      const originUrl = task.originUrl || "unknown";
 
       const batch = db.batch();
 
