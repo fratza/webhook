@@ -174,6 +174,7 @@ app.post("/api/webhook/*", async (req, res) => {
   try {
     if (fullPath === "/api/webhook/browseAI") {
       // === Your BrowseAI-specific webhook logic ===
+      console.log("URL PATH: ", fullPath);
       console.log("[BrowseAI Webhook] Starting to process incoming request...");
       const incomingData = req.body;
       const timestamp = admin.firestore.Timestamp.fromDate(new Date());
@@ -246,6 +247,10 @@ app.post("/api/webhook/*", async (req, res) => {
     // === Default webhook handler for other paths (or fallback) ===
     if (fullPath === "/api/webhook") {
       console.log("DEFAULT");
+      return res.json({
+        success: true,
+        message: "Default webhook endpoint hit",
+      });
     }
 
     // If no matching route found, send 404
