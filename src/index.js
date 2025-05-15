@@ -167,99 +167,95 @@ app.post("/api/trigger", async (req, res) => {
  *
  * @returns {200} Returns 200 with processed webhook data
  */
-app.post("/api/webhook", async (req, res) => {
+app.post("/api/webhook/*", async (req, res) => {
+  const fullPath = req.originalUrl; // e.g. "/api/webhook/browseAI" or "/api/webhook/otherPath"
+  console.log("[Webhook] Incoming request at URL:", fullPath);
+
   try {
-    console.log("[Webhook] Starting to process incoming request...");
-    const incomingData = req.body;
-    const timestamp = admin.firestore.Timestamp.fromDate(new Date());
+    if (fullPath === "/api/webhook/browseAI") {
+      // === Your BrowseAI-specific webhook logic ===
+      console.log("[BrowseAI Webhook] Starting to process incoming request...");
+      const incomingData = req.body;
+      const timestamp = admin.firestore.Timestamp.fromDate(new Date());
 
-    console.log(
-      "[Webhook] Received data:",
-      JSON.stringify(incomingData, null, 2)
-    );
-
-    // Safely access and log the capturedLists
-    const capturedLists = incomingData?.task?.capturedLists;
-
-    if (capturedLists) {
-      console.log("Captured Lists:", JSON.stringify(capturedLists, null, 2));
-    } else {
-      console.log("No capturedLists found in the webhook data.");
-    }
-
-    // Extract task data
-    const { task } = incomingData;
-    const taskId = task?.id;
-
-    if (!taskId) {
-      throw new Error("Task ID is required");
-    }
-
-    const batch = db.batch();
-
-    console.log("[Webhook] Processing captured data...");
-
-    // Store capturedTexts
-    if (task.capturedTexts) {
-      console.log("[Texts] Processing captured texts...");
-      const textsRef = db.collection("captured_texts").doc(taskId);
-      const textsData = convertToFirestoreFormat(task.capturedTexts);
-      batch.set(textsRef, {
-        taskId,
-        createdAt: timestamp,
-        data: textsData,
-      });
-      console.log(`[Texts] Prepared for storage with ID: ${taskId}`);
-    }
-
-    // Store capturedScreenshots
-    if (task.capturedScreenshots) {
-      console.log("[Screenshots] Processing captured screenshots...");
-      const screenshotsRef = db.collection("captured_screenshots").doc(taskId);
-      const screenshotsData = convertToFirestoreFormat(
-        task.capturedScreenshots
+      console.log(
+        "[BrowseAI Webhook] Received data:",
+        JSON.stringify(incomingData, null, 2)
       );
-      batch.set(screenshotsRef, {
+
+      // Example BrowseAI processing:
+      const task = incomingData?.task;
+      if (!task?.id) {
+        throw new Error("Task ID is required");
+      }
+      const taskId = task.id;
+
+      const batch = db.batch();
+
+      if (task.capturedTexts) {
+        const textsRef = db.collection("captured_texts").doc(taskId);
+        const textsData = convertToFirestoreFormat(task.capturedTexts);
+        batch.set(textsRef, {
+          taskId,
+          createdAt: timestamp,
+          data: textsData,
+        });
+      }
+
+      if (task.capturedScreenshots) {
+        const screenshotsRef = db
+          .collection("captured_screenshots")
+          .doc(taskId);
+        const screenshotsData = convertToFirestoreFormat(
+          task.capturedScreenshots
+        );
+        batch.set(screenshotsRef, {
+          taskId,
+          createdAt: timestamp,
+          data: screenshotsData,
+        });
+      }
+
+      if (task.capturedLists) {
+        const listsRef = db.collection("captured_lists").doc(taskId);
+        const listsData = convertToFirestoreFormat(task.capturedLists);
+        batch.set(listsRef, {
+          taskId,
+          createdAt: timestamp,
+          data: listsData,
+        });
+      }
+
+      await batch.commit();
+      console.log("[BrowseAI Webhook] Batch write successful!");
+
+      return res.json({
+        success: true,
         taskId,
-        createdAt: timestamp,
-        data: screenshotsData,
+        meta: {
+          processedAt: timestamp.toDate().toISOString(),
+          collections: [
+            "captured_texts",
+            "captured_screenshots",
+            "captured_lists",
+          ],
+        },
       });
-      console.log(`[Screenshots] Prepared for storage with ID: ${taskId}`);
     }
 
-    // Store capturedLists
-    if (task.capturedLists) {
-      console.log("[Lists] Processing captured lists...");
-      const listsRef = db.collection("captured_lists").doc(taskId);
-      const listsData = convertToFirestoreFormat(task.capturedLists);
-      batch.set(listsRef, {
-        taskId,
-        createdAt: timestamp,
-        data: listsData,
-      });
-      console.log(`[Lists] Prepared for storage with ID: ${taskId}`);
+    // === Default webhook handler for other paths (or fallback) ===
+    if (fullPath === "/api/webhook") {
+      console.log("DEFAULT");
     }
 
-    console.log("[Firestore] Committing batch write...");
-    await batch.commit();
-    console.log("[Firestore] Batch write successful!");
-
-    // Return response
-    res.json({
-      success: true,
-      taskId,
-      meta: {
-        processedAt: timestamp.toDate().toISOString(),
-        collections: [
-          "captured_texts",
-          "captured_screenshots",
-          "captured_lists",
-        ],
-      },
+    // If no matching route found, send 404
+    return res.status(404).json({
+      success: false,
+      error: "Invalid webhook endpoint",
     });
   } catch (error) {
     console.error("Error processing webhook:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: error.message || "Error processing webhook data",
     });
