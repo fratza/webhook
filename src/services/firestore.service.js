@@ -36,6 +36,28 @@ class FirestoreService {
       throw error;
     }
   }
+
+  /**
+   * Fetch a single document by ID from a collection
+   * @param {string} collection - Collection name
+   * @param {string} documentId - Document ID
+   * @returns {Promise<Object|null>} Document data or null if not found
+   */
+  async fetchDocumentById(collection, documentId) {
+    try {
+      const docRef = this.db.collection(collection).doc(documentId);
+      const doc = await docRef.get();
+      
+      if (!doc.exists) {
+        return null;
+      }
+      
+      return { id: doc.id, ...doc.data() };
+    } catch (error) {
+      console.error("Error fetching document from Firestore:", error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new FirestoreService();

@@ -59,6 +59,24 @@ app.get("/api/firestore/:collection", async (req, res) => {
   }
 });
 
+// Endpoint to fetch a single document by ID
+app.get("/api/firestore/:collection/:documentId", async (req, res) => {
+  try {
+    const { collection, documentId } = req.params;
+    
+    const document = await firestoreService.fetchDocumentById(collection, documentId);
+    
+    if (!document) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+    
+    res.json(document);
+  } catch (error) {
+    console.error("Error fetching document from Firestore:", error);
+    res.status(500).json({ error: "Failed to fetch document from Firestore" });
+  }
+});
+
 // Generate a secret for webhook
 function generateWebhookSecret() {
   return crypto.randomBytes(32).toString("hex");
