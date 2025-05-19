@@ -28,6 +28,40 @@ app.use(bodyParser.json());
 // Store registered webhooks
 const webhooks = new Map();
 
+// Import Firestore service
+const firestoreService = require('./services/firestore.service');
+
+// Endpoint to fetch data from Firestore
+app.get('/api/firestore/:collection', async (req, res) => {
+  try {
+    const { collection } = req.params;
+    const { limit, where } = req.query;
+
+    // Parse where clause if provided
+    let whereClause;
+    if (where) {
+      try {
+        whereClause = JSON.parse(where);
+      } catch (error) {
+        return res.status(400).json({ error: 'Invalid where clause format' });
+      }
+    }
+
+    const result = await firestoreService.fetchFromCollection(collection, {
+      limit,
+      where: whereClause
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching from Firestore:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch data from Firestore'
+    });
+  }
+});
+
 // Generate a secret for webhook
 function generateWebhookSecret() {
   return crypto.randomBytes(32).toString("hex");
@@ -173,99 +207,16 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
 
   try {
     if (webhookId === "browseAI") {
-      // === Your BrowseAI-specific webhook logic ===
-      console.log("[BrowseAI Webhook] Starting to process incoming request...");
-      const incomingData = req.body;
-      const timestamp = admin.firestore.Timestamp.fromDate(new Date());
-
-      console.log(
-        "[BrowseAI Webhook] Received data:",
-        JSON.stringify(incomingData, null, 2)
-      );
-
-      // Example BrowseAI processing:
-      const task = incomingData?.task;
-      if (!task?.id) {
-        throw new Error("Task ID is required");
-      }
-      const taskId = task.id;
-      const originUrl = task.originUrl || "unknown";
-
-      const batch = db.batch();
-
-      if (task.capturedTexts) {
-        const textsRef = db.collection("captured_texts").doc(taskId);
-        const textsData = convertToFirestoreFormat(task.capturedTexts);
-        batch.set(textsRef, {
-          taskId,
-          originUrl: originUrl,
-          createdAt: timestamp,
-          data: textsData,
-        });
-      }
-
-      if (task.capturedScreenshots) {
-        const screenshotsRef = db
-          .collection("captured_screenshots")
-          .doc(taskId);
-        const screenshotsData = convertToFirestoreFormat(
-          task.capturedScreenshots
-        );
-        batch.set(screenshotsRef, {
-          taskId,
-          originUrl: originUrl,
-          createdAt: timestamp,
-          data: screenshotsData,
-        });
-      }
-
-      if (task.capturedLists) {
-        const listsRef = db.collection("captured_lists").doc(taskId);
-        const listsData = convertToFirestoreFormat(task.capturedLists);
-        batch.set(listsRef, {
-          taskId,
-          originUrl: originUrl,
-          createdAt: timestamp,
-          data: listsData,
-        });
-      }
-
-      await batch.commit();
-      console.log("[BrowseAI Webhook] Batch write successful!");
-
-      return res.json({
-        success: true,
-        taskId,
-        meta: {
-          processedAt: timestamp.toDate().toISOString(),
-          collections: [
-            "captured_texts",
-            "captured_screenshots",
-            "captured_lists",
-          ],
-        },
-      });
+      const result = await webhookService.processBrowseAIWebhook(req.body);
+      res.status(200).json(result);
+    } else {
+      throw new Error(`Unsupported webhook type: ${webhookId}`);
     }
-
-    // === Default webhook handler for other paths (or fallback) ===
-    if (webhookId === "default") {
-      console.log("DEFAULT");
-      return res.json({
-        success: true,
-        message: "Default webhook endpoint hit",
-      });
-    }
-
-    // If no matching route found, send 404
-    return res.status(404).json({
-      success: false,
-      error: "Invalid webhook endpoint",
-    });
   } catch (error) {
-    console.error("Error processing webhook:", error);
-    return res.status(500).json({
+    console.error("[Webhook] Error processing webhook:", error);
+    res.status(500).json({
       success: false,
-      error: error.message || "Error processing webhook data",
+      error: error.message || "Failed to process webhook",
     });
   }
 });
