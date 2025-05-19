@@ -210,7 +210,7 @@ app.post("/api/trigger", async (req, res) => {
 app.post("/api/webhook/:webhookId", async (req, res) => {
   const webhookId = req.params.webhookId;
   console.log("[Webhook] Incoming request at URL:", webhookId);
-  console.log("[Webhook] Received data:", JSON.stringify(req.body, null, 2));
+  // console.log("[Webhook] Received data:", JSON.stringify(req.body, null, 2));
 
   try {
     if (webhookId === "browseAI") {
@@ -222,12 +222,6 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
     }
   } catch (error) {
     console.error("[Webhook] Error processing webhook:", error);
-    console.error("[Webhook] Full error stack:", error.stack);
-    console.error("[Webhook] Environment check:", {
-      hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
-      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
-      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
-    });
     res.status(500).json({
       success: false,
       error: error.message || "Failed to process webhook",
