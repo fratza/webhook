@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+const admin = require("firebase-admin");
 
 class WebhookService {
   constructor() {
@@ -41,7 +41,10 @@ class WebhookService {
    */
   async processBrowseAIWebhook(data) {
     console.log("[BrowseAI Webhook] Starting to process incoming request...");
-    console.log("[BrowseAI Webhook] Received data:", JSON.stringify(data, null, 2));
+    console.log(
+      "[BrowseAI Webhook] Received data:",
+      JSON.stringify(data, null, 2)
+    );
 
     const task = data?.task;
     if (!task?.id) {
@@ -67,8 +70,12 @@ class WebhookService {
 
     // Process captured screenshots
     if (task.capturedScreenshots) {
-      const screenshotsRef = this.db.collection("captured_screenshots").doc(taskId);
-      const screenshotsData = this.convertToFirestoreFormat(task.capturedScreenshots);
+      const screenshotsRef = this.db
+        .collection("captured_screenshots")
+        .doc(taskId);
+      const screenshotsData = this.convertToFirestoreFormat(
+        task.capturedScreenshots
+      );
       batch.set(screenshotsRef, {
         taskId,
         originUrl,
@@ -95,7 +102,7 @@ class WebhookService {
     return {
       success: true,
       message: "Webhook processed successfully",
-      taskId
+      taskId,
     };
   }
 }

@@ -2,6 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const crypto = require("crypto");
 const admin = require("firebase-admin");
+const webhookService = require("./services/webhook.service");
 require("dotenv").config();
 
 // Initialize Firebase Admin
@@ -39,7 +40,9 @@ app.get("/api/firestore/:collection", async (req, res) => {
     res.json(documentIds);
   } catch (error) {
     console.error("Error fetching from Firestore:", error);
-    res.status(500).json({ error: "Failed to fetch document IDs from Firestore" });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch document IDs from Firestore" });
   }
 });
 
@@ -47,13 +50,16 @@ app.get("/api/firestore/:collection", async (req, res) => {
 app.get("/api/firestore/:collection/:documentId", async (req, res) => {
   try {
     const { collection, documentId } = req.params;
-    
-    const document = await firestoreService.fetchDocumentById(collection, documentId);
-    
+
+    const document = await firestoreService.fetchDocumentById(
+      collection,
+      documentId
+    );
+
     if (!document) {
       return res.status(404).json({ error: "Document not found" });
     }
-    
+
     res.json(document);
   } catch (error) {
     console.error("Error fetching document from Firestore:", error);
@@ -206,6 +212,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
 
   try {
     if (webhookId === "browseAI") {
+      console.log(`Initiating ${webhookId} process...`);
       const result = await webhookService.processBrowseAIWebhook(req.body);
       res.status(200).json(result);
     } else {
