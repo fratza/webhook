@@ -210,7 +210,7 @@ app.post("/api/trigger", async (req, res) => {
 app.post("/api/webhook/:webhookId", async (req, res) => {
   const webhookId = req.params.webhookId;
   console.log("[Webhook] Incoming request at URL:", webhookId);
-  // console.log("[Webhook] Received data:", JSON.stringify(req.body, null, 2));
+  console.log("[Webhook] Received data:", JSON.stringify(req.body, null, 2));
 
   try {
     if (webhookId === "browseAI") {
