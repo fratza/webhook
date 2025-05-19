@@ -2,7 +2,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const crypto = require("crypto");
 const admin = require("firebase-admin");
-const webhookService = require("./services/webhook.service");
+const WebhookService = require("./services/webhook.service");
+const FirestoreService = require("./services/firestore.service");
 require("dotenv").config();
 
 // Initialize Firebase Admin
@@ -18,7 +19,10 @@ admin.initializeApp({
   }),
 });
 
+// Initialize Firestore and services
 const db = admin.firestore();
+const webhookService = new WebhookService(admin, db);
+const firestoreService = new FirestoreService(db);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,9 +32,6 @@ app.use(bodyParser.json());
 
 // Store registered webhooks
 const webhooks = new Map();
-
-// Import Firestore service
-const firestoreService = require("./services/firestore.service");
 
 // Endpoint to fetch data from Firestore
 app.get("/api/firestore/:collection", async (req, res) => {

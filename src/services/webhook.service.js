@@ -1,8 +1,7 @@
-const admin = require("firebase-admin");
-
 class WebhookService {
-  constructor() {
-    this.db = admin.firestore();
+  constructor(admin, db) {
+    this.admin = admin;
+    this.db = db;
   }
 
   /**
@@ -20,7 +19,7 @@ class WebhookService {
     }
 
     if (data instanceof Date) {
-      return admin.firestore.Timestamp.fromDate(data);
+      return this.admin.firestore.Timestamp.fromDate(data);
     }
 
     if (typeof data === "object") {
@@ -53,7 +52,7 @@ class WebhookService {
 
     const taskId = task.id;
     const originUrl = task.originUrl || "unknown";
-    const timestamp = admin.firestore.Timestamp.fromDate(new Date());
+    const timestamp = this.admin.firestore.Timestamp.fromDate(new Date());
     const batch = this.db.batch();
 
     // Process captured texts
@@ -107,4 +106,4 @@ class WebhookService {
   }
 }
 
-module.exports = new WebhookService();
+module.exports = WebhookService;

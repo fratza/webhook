@@ -1,8 +1,6 @@
-const admin = require("firebase-admin");
-
 class FirestoreService {
-  constructor() {
-    this.db = admin.firestore();
+  constructor(db) {
+    this.db = db;
   }
 
   /**
@@ -43,4 +41,4 @@ class FirestoreService {
   }
 }
 
-module.exports = new FirestoreService();
+module.exports = FirestoreService;
