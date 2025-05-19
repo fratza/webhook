@@ -35,27 +35,11 @@ const firestoreService = require("./services/firestore.service");
 app.get("/api/firestore/:collection", async (req, res) => {
   try {
     const { collection } = req.params;
-    const { limit, where } = req.query;
-
-    // Parse where clause if provided
-    let whereClause;
-    if (where) {
-      try {
-        whereClause = JSON.parse(where);
-      } catch (error) {
-        return res.status(400).json({ error: "Invalid where clause format" });
-      }
-    }
-
-    const documents = await firestoreService.fetchFromCollection(collection, {
-      limit,
-      where: whereClause,
-    });
-
-    res.json(documents);
+    const documentIds = await firestoreService.fetchFromCollection(collection);
+    res.json(documentIds);
   } catch (error) {
     console.error("Error fetching from Firestore:", error);
-    res.status(500).json({ error: "Failed to fetch data from Firestore" });
+    res.status(500).json({ error: "Failed to fetch document IDs from Firestore" });
   }
 });
 
