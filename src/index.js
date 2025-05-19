@@ -222,9 +222,16 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
     }
   } catch (error) {
     console.error("[Webhook] Error processing webhook:", error);
+    console.error("[Webhook] Full error stack:", error.stack);
+    console.error("[Webhook] Environment check:", {
+      hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
+      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+    });
     res.status(500).json({
       success: false,
       error: error.message || "Failed to process webhook",
+      details: error.stack,
     });
   }
 });
