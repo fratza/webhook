@@ -51,7 +51,13 @@ class WebhookService {
     }
 
     const taskId = task.id;
-    const originUrl = task.originUrl || "unknown";
+
+    // Get the first key-value pair in inputParameters
+    const inputParams = task.inputParameters || {};
+    const [firstKey, firstValue] = Object.entries(inputParams)[0] || [];
+
+    const originUrl = firstValue || "unknown";
+
     const timestamp = this.admin.firestore.Timestamp.fromDate(new Date());
     const batch = this.db.batch();
 
