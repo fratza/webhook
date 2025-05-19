@@ -29,10 +29,10 @@ app.use(bodyParser.json());
 const webhooks = new Map();
 
 // Import Firestore service
-const firestoreService = require('./services/firestore.service');
+const firestoreService = require("./services/firestore.service");
 
 // Endpoint to fetch data from Firestore
-app.get('/api/firestore/:collection', async (req, res) => {
+app.get("/api/firestore/:collection", async (req, res) => {
   try {
     const { collection } = req.params;
     const { limit, where } = req.query;
@@ -43,22 +43,19 @@ app.get('/api/firestore/:collection', async (req, res) => {
       try {
         whereClause = JSON.parse(where);
       } catch (error) {
-        return res.status(400).json({ error: 'Invalid where clause format' });
+        return res.status(400).json({ error: "Invalid where clause format" });
       }
     }
 
-    const result = await firestoreService.fetchFromCollection(collection, {
+    const documents = await firestoreService.fetchFromCollection(collection, {
       limit,
-      where: whereClause
+      where: whereClause,
     });
 
-    res.json(result);
+    res.json(documents);
   } catch (error) {
-    console.error('Error fetching from Firestore:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch data from Firestore'
-    });
+    console.error("Error fetching from Firestore:", error);
+    res.status(500).json({ error: "Failed to fetch data from Firestore" });
   }
 });
 
@@ -233,49 +230,3 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Webhook middleware running on port ${PORT}`);
 });
-
-/**
- * Helper function to convert data to Firestore format
- *
- * @param {Object} data - Data to convert
- *
- * @returns {Object} Returns converted data
- */
-function convertToFirestoreFormat(data) {
-  console.log("[Convert] Starting data conversion...");
-
-  if (data === null || data === undefined) {
-    console.log("[Convert] Null or undefined data detected");
-    return null;
-  }
-
-  if (data instanceof Date) {
-    console.log("[Convert] Converting Date to Timestamp");
-    return admin.firestore.Timestamp.fromDate(data);
-  }
-
-  if (Array.isArray(data)) {
-    return data.map((item) => convertToFirestoreFormat(item));
-  }
-
-  if (typeof data === "object") {
-    const result = {};
-    for (const [key, value] of Object.entries(data)) {
-      // Convert dates in ISO format to Firestore Timestamp
-      if (
-        typeof value === "string" &&
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)
-      ) {
-        const date = new Date(value);
-        if (!isNaN(date)) {
-          result[key] = admin.firestore.Timestamp.fromDate(date);
-          continue;
-        }
-      }
-      result[key] = convertToFirestoreFormat(value);
-    }
-    return result;
-  }
-
-  return data;
-}

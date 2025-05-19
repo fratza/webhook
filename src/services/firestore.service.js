@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+const admin = require("firebase-admin");
 
 class FirestoreService {
   constructor() {
@@ -10,39 +10,29 @@ class FirestoreService {
    * @param {string} collection - Collection name
    * @param {Object} options - Query options
    * @param {number} options.limit - Maximum number of documents to return
-   * @param {Array} options.where - Array of [field, operator, value] for filtering
+   * @param {Object} options.where - Object with field-value pairs for filtering
    * @returns {Promise<Array>} Array of documents
    */
   async fetchFromCollection(collection, options = {}) {
     try {
-      const { limit = 10, where } = options;
       let query = this.db.collection(collection);
 
       // Apply where clause if provided
-      if (where) {
-        const [field, operator, value] = where;
-        query = query.where(field, operator, value);
+      if (options.where) {
+        Object.entries(options.where).forEach(([field, value]) => {
+          query = query.where(field, '==', value);
+        });
       }
 
-      // Apply limit
-      query = query.limit(parseInt(limit));
+      // Apply limit if provided
+      if (options.limit) {
+        query = query.limit(parseInt(options.limit));
+      }
 
       const snapshot = await query.get();
-      const data = [];
-
-      snapshot.forEach(doc => {
-        data.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-
-      return {
-        success: true,
-        data
-      };
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
-      console.error('Error fetching from Firestore:', error);
+      console.error("Error fetching documents from Firestore:", error);
       throw error;
     }
   }
