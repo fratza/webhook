@@ -11,7 +11,10 @@ class FirestoreService {
   async fetchFromCollection(collection) {
     try {
       const snapshot = await this.db.collection(collection).get();
-      return snapshot.docs.map(doc => doc.id);
+      const documentIds = snapshot.docs.map((doc) => doc.id);
+      return {
+        documents: documentIds,
+      };
     } catch (error) {
       console.error("Error fetching documents from Firestore:", error);
       throw error;
@@ -28,11 +31,11 @@ class FirestoreService {
     try {
       const docRef = this.db.collection(collection).doc(documentId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists) {
         return null;
       }
-      
+
       return { id: doc.id, ...doc.data() };
     } catch (error) {
       console.error("Error fetching document from Firestore:", error);
