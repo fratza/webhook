@@ -42,6 +42,30 @@ class FirestoreService {
       throw error;
     }
   }
+
+  /**
+   * Delete a document by ID from a collection
+   * @param {string} collection - Collection name
+   * @param {string} documentId - Document ID to delete
+   * @returns {Promise<Object>} Result of the delete operation
+   */
+  async deleteDocumentById(collection, documentId) {
+    try {
+      const docRef = this.db.collection(collection).doc(documentId);
+      
+      // Check if document exists before deleting
+      const doc = await docRef.get();
+      if (!doc.exists) {
+        return { success: false, error: 'Document not found' };
+      }
+      
+      await docRef.delete();
+      return { success: true, message: 'Document deleted successfully' };
+    } catch (error) {
+      console.error("Error deleting document from Firestore:", error);
+      throw error;
+    }
+  }
 }
 
 module.exports = FirestoreService;

@@ -68,6 +68,27 @@ app.get("/api/firestore/:collection/:documentId", async (req, res) => {
   }
 });
 
+// Endpoint to delete a document by ID
+app.delete("/api/firestore/:collection/:documentId", async (req, res) => {
+  try {
+    const { collection, documentId } = req.params;
+    
+    const result = await firestoreService.deleteDocumentById(
+      collection,
+      documentId
+    );
+    
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error deleting document from Firestore:", error);
+    res.status(500).json({ error: "Failed to delete document from Firestore" });
+  }
+});
+
 // Generate a secret for webhook
 function generateWebhookSecret() {
   return crypto.randomBytes(32).toString("hex");
