@@ -127,8 +127,11 @@ class WebhookService {
       // Check if document already exists
       const docSnapshot = await listsRef.get();
 
-      // Remove 'Position' from listsData
+      // Remove 'Position' and '_STATUS' from listsData
       const { Position, _STATUS, ...filteredListsData } = listsData;
+      
+      // Generate a unique ID for each entry
+      const entryId = this.admin.firestore.Timestamp.now().toMillis().toString();
 
       if (docSnapshot.exists) {
         console.log(
@@ -142,8 +145,13 @@ class WebhookService {
           data: {
             ...existingData.data,
             [taskId]: {
-              ...filteredListsData,
-              createdAt: timestamp,
+              entries: {
+                ...((existingData.data && existingData.data[taskId] && existingData.data[taskId].entries) || {}),
+                [entryId]: {
+                  ...filteredListsData,
+                  createdAt: timestamp,
+                }
+              }
             },
           },
         };
@@ -155,8 +163,12 @@ class WebhookService {
           data: {
             originUrl,
             [taskId]: {
-              ...filteredListsData,
-              createdAt: timestamp,
+              entries: {
+                [entryId]: {
+                  ...filteredListsData,
+                  createdAt: timestamp,
+                }
+              }
             },
           },
         };
