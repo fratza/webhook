@@ -235,6 +235,18 @@ app.post("/api/trigger", async (req, res) => {
  */
 app.post("/api/webhook/:webhookId", async (req, res) => {
   const webhookId = req.params.webhookId;
+
+  const originalJson = res.json;
+
+  res.json = function (body) {
+    // Log response
+    console.log("[Webhook] Response status:", res.statusCode);
+    console.log("[Webhook] Response body:", JSON.stringify(body, null, 2));
+
+    // Call the original res.json
+    return originalJson.call(this, body);
+  };
+
   console.log("[Webhook] Incoming request:");
   console.log("  URL Param - webhookId:", webhookId);
   console.log("  Method:", req.method);
