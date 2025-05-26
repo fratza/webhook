@@ -131,19 +131,20 @@ class WebhookService {
         console.log(
           `[BrowseAI Webhook] Document '${docId}' already exists, updating data...`
         );
-        // Document exists, merge the new data with existing data
+
         const existingData = docSnapshot.data();
 
-        // Structure the data with taskID as parent key
+        // Remove 'Position' from listsData
+        const { Position, ...filteredListsData } = listsData;
+
         const mergedData = {
           ...existingData,
-          updatedAt: timestamp, // Add update timestamp
-          // Keep the existing createdAt timestamp
+          updatedAt: timestamp,
           data: {
-            ...existingData.data, // Keep existing data
+            ...existingData.data,
             [taskId]: {
-              ...listsData,
-              createdAt: timestamp, // Add createdAt timestamp under taskId
+              ...filteredListsData,
+              createdAt: timestamp,
             },
           },
         };
