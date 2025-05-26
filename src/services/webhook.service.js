@@ -91,14 +91,67 @@ class WebhookService {
 
     // Process captured lists
     if (task.capturedLists) {
-      const listsRef = this.db.collection("captured_lists").doc(taskId);
+      // Use originUrl directly if it's valid, otherwise extract domain name
+      let docId = "unknown";
+
+      if (originUrl && originUrl !== "unknown") {
+        // If we have a valid origin URL, use it directly as the document ID
+        docId = originUrl;
+        console.log(
+          "[BrowseAI Webhook] Using origin URL as document ID:",
+          docId
+        );
+      } else {
+        // Fallback to extracting domain name from URL
+        try {
+          const urlObj = new URL(originUrl); // e.g., https://www.espn.ph
+          const hostnameParts = urlObj.hostname.split("."); // ['www', 'espn', 'ph']
+          docId =
+            hostnameParts.length > 1
+              ? hostnameParts[hostnameParts.length - 2]
+              : hostnameParts[0];
+        } catch (err) {
+          console.warn("Failed to parse originUrl:", originUrl);
+        }
+      }
+
+      const listsRef = this.db.collection("captured_lists").doc(docId);
       const listsData = this.convertToFirestoreFormat(task.capturedLists);
-      batch.set(listsRef, {
-        taskId,
-        originUrl,
-        createdAt: timestamp,
-        data: listsData,
-      });
+
+      // Check if document already exists
+      const docSnapshot = await listsRef.get();
+
+      if (docSnapshot.exists) {
+        console.log(
+          `[BrowseAI Webhook] Document '${docId}' already exists, updating data...`
+        );
+        // Document exists, merge the new data with existing data
+        const existingData = docSnapshot.data();
+
+        // Merge the new lists data with existing data
+        const mergedData = {
+          ...existingData,
+          taskId, // Update with latest task ID
+          originUrl, // Update origin URL
+          updatedAt: timestamp, // Add update timestamp
+          // Keep the existing createdAt timestamp
+          data: existingData.data
+            ? // If data field exists, merge with new data
+              { ...existingData.data, ...listsData }
+            : // Otherwise, use new data
+              listsData,
+        };
+
+        batch.set(listsRef, mergedData);
+      } else {
+        // Document doesn't exist, create new document
+        batch.set(listsRef, {
+          taskId,
+          originUrl,
+          createdAt: timestamp,
+          data: listsData,
+        });
+      }
     }
 
     await batch.commit();
