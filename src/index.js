@@ -69,25 +69,30 @@ app.get("/api/firestore/:collection/:documentId", async (req, res) => {
 });
 
 // Endpoint to delete a document by ID
-app.delete("/api/firestore/:collection/:documentId", async (req, res) => {
-  try {
-    const { collection, documentId } = req.params;
-    
-    const result = await firestoreService.deleteDocumentById(
-      collection,
-      documentId
-    );
-    
-    if (!result.success) {
-      return res.status(404).json({ error: result.error });
+app.delete(
+  "/api/delete/firestore/:collection/:documentId",
+  async (req, res) => {
+    try {
+      const { collection, documentId } = req.params;
+
+      const result = await firestoreService.deleteDocumentById(
+        collection,
+        documentId
+      );
+
+      if (!result.success) {
+        return res.status(404).json({ error: result.error });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error deleting document from Firestore:", error);
+      res
+        .status(500)
+        .json({ error: "Failed to delete document from Firestore" });
     }
-    
-    res.json(result);
-  } catch (error) {
-    console.error("Error deleting document from Firestore:", error);
-    res.status(500).json({ error: "Failed to delete document from Firestore" });
   }
-});
+);
 
 // Generate a secret for webhook
 function generateWebhookSecret() {
@@ -231,7 +236,7 @@ app.post("/api/trigger", async (req, res) => {
 app.post("/api/webhook/:webhookId", async (req, res) => {
   const webhookId = req.params.webhookId;
   console.log("[Webhook] Incoming request at URL:", webhookId);
-  console.log("[Webhook] Received data:", JSON.stringify(req.body, null, 2));
+  console.log("[Webhook] Received data:", JSON.stringify(req, null, 2));
 
   try {
     if (webhookId === "browseAI") {
