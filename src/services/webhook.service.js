@@ -127,6 +127,9 @@ class WebhookService {
       // Check if document already exists
       const docSnapshot = await listsRef.get();
 
+      // Remove 'Position' from listsData
+      const { Position, ...filteredListsData } = listsData;
+
       if (docSnapshot.exists) {
         console.log(
           `[BrowseAI Webhook] Document '${docId}' already exists, updating data...`
@@ -134,12 +137,8 @@ class WebhookService {
 
         const existingData = docSnapshot.data();
 
-        // Remove 'Position' from listsData
-        const { Position, ...filteredListsData } = listsData;
-
         const mergedData = {
           ...existingData,
-          updatedAt: timestamp,
           data: {
             ...existingData.data,
             [taskId]: {
@@ -152,12 +151,16 @@ class WebhookService {
         batch.set(listsRef, mergedData);
       } else {
         // Document doesn't exist, create new document
-        batch.set(listsRef, {
-          taskId,
-          originUrl,
-          createdAt: timestamp,
-          data: listsData,
-        });
+        const prepData = {
+          data: {
+            originUrl,
+            [taskId]: {
+              ...filteredListsData,
+              createdAt: timestamp,
+            },
+          },
+        };
+        batch.set(listsRef, prepData);
       }
     }
 
