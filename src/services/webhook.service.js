@@ -98,7 +98,7 @@ class WebhookService {
         if (originUrl && originUrl !== "unknown") {
           const urlObj = new URL(originUrl); // e.g., https://www.espn.com.ph
           const hostnameParts = urlObj.hostname.split("."); // ['www', 'espn', 'com', 'ph']
-          
+
           // Extract the middle part (like "espn" from "www.espn.com.ph")
           if (hostnameParts.length >= 3) {
             // For domains with at least 3 parts (www.espn.com, www.espn.ph, etc.)
@@ -112,7 +112,7 @@ class WebhookService {
             // For single part domains (localhost, etc.)
             docId = hostnameParts[0];
           }
-          
+
           console.log(
             `[BrowseAI Webhook] Extracted '${docId}' from URL: ${originUrl}`
           );
@@ -134,18 +134,18 @@ class WebhookService {
         // Document exists, merge the new data with existing data
         const existingData = docSnapshot.data();
 
-        // Merge the new lists data with existing data
+        // Structure the data with taskID as parent key
         const mergedData = {
           ...existingData,
-          taskId, // Update with latest task ID
-          originUrl, // Update origin URL
           updatedAt: timestamp, // Add update timestamp
           // Keep the existing createdAt timestamp
-          data: existingData.data
-            ? // If data field exists, merge with new data
-              { ...existingData.data, ...listsData }
-            : // Otherwise, use new data
-              listsData,
+          data: {
+            ...existingData.data, // Keep existing data
+            [taskId]: {
+              ...listsData,
+              createdAt: timestamp, // Add createdAt timestamp under taskId
+            },
+          },
         };
 
         batch.set(listsRef, mergedData);
