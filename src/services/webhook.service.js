@@ -127,23 +127,38 @@ class WebhookService {
       // Check if document already exists
       const docSnapshot = await listsRef.get();
 
-      // Process listsData to remove unwanted fields
-      let processedData = {};
-      
-      // Only copy fields we want to keep (explicitly exclude Position and _STATUS)
-      if (listsData && typeof listsData === 'object') {
-        Object.keys(listsData).forEach(key => {
-          // Skip Position and _STATUS fields
-          if (key !== 'Position' && key !== '_STATUS') {
-            processedData[key] = listsData[key];
+      // Process listsData to remove unwanted fields at all nesting levels
+      const cleanData = (obj) => {
+        if (!obj || typeof obj !== 'object') return obj;
+        
+        // Handle arrays
+        if (Array.isArray(obj)) {
+          return obj.map(item => cleanData(item));
+        }
+        
+        // Handle objects
+        const cleaned = {};
+        for (const [key, value] of Object.entries(obj)) {
+          // Skip position/Position and _STATUS fields
+          if (key.toLowerCase() !== 'position' && key !== '_STATUS') {
+            // Recursively clean nested objects
+            cleaned[key] = typeof value === 'object' ? cleanData(value) : value;
           }
-        });
-      }
+        }
+        return cleaned;
+      };
       
-      console.log('[BrowseAI Webhook] Removed Position and _STATUS fields from data');
-      
+      // Clean the data at all levels
+      const processedData = cleanData(listsData);
+
+      console.log(
+        "[BrowseAI Webhook] Removed position/Position and _STATUS fields from data at all nesting levels"
+      );
+
       // Generate a unique ID for each entry
-      const entryId = this.admin.firestore.Timestamp.now().toMillis().toString();
+      const entryId = this.admin.firestore.Timestamp.now()
+        .toMillis()
+        .toString();
 
       if (docSnapshot.exists) {
         console.log(
@@ -158,12 +173,15 @@ class WebhookService {
             ...existingData.data,
             [taskId]: {
               entries: {
-                ...((existingData.data && existingData.data[taskId] && existingData.data[taskId].entries) || {}),
+                ...((existingData.data &&
+                  existingData.data[taskId] &&
+                  existingData.data[taskId].entries) ||
+                  {}),
                 [entryId]: {
                   ...processedData,
-                  createdAt: timestamp
-                }
-              }
+                  createdAt: timestamp,
+                },
+              },
             },
           },
         };
@@ -178,9 +196,9 @@ class WebhookService {
               entries: {
                 [entryId]: {
                   ...processedData,
-                  createdAt: timestamp
-                }
-              }
+                  createdAt: timestamp,
+                },
+              },
             },
           },
         };
