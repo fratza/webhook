@@ -127,8 +127,20 @@ class WebhookService {
       // Check if document already exists
       const docSnapshot = await listsRef.get();
 
-      // Remove 'Position' and '_STATUS' from listsData
-      const { Position, _STATUS, ...filteredListsData } = listsData;
+      // Process listsData to remove unwanted fields
+      let processedData = {};
+      
+      // Only copy fields we want to keep (explicitly exclude Position and _STATUS)
+      if (listsData && typeof listsData === 'object') {
+        Object.keys(listsData).forEach(key => {
+          // Skip Position and _STATUS fields
+          if (key !== 'Position' && key !== '_STATUS') {
+            processedData[key] = listsData[key];
+          }
+        });
+      }
+      
+      console.log('[BrowseAI Webhook] Removed Position and _STATUS fields from data');
       
       // Generate a unique ID for each entry
       const entryId = this.admin.firestore.Timestamp.now().toMillis().toString();
@@ -148,8 +160,8 @@ class WebhookService {
               entries: {
                 ...((existingData.data && existingData.data[taskId] && existingData.data[taskId].entries) || {}),
                 [entryId]: {
-                  ...filteredListsData,
-                  createdAt: timestamp,
+                  ...processedData,
+                  createdAt: timestamp
                 }
               }
             },
@@ -165,8 +177,8 @@ class WebhookService {
             [taskId]: {
               entries: {
                 [entryId]: {
-                  ...filteredListsData,
-                  createdAt: timestamp,
+                  ...processedData,
+                  createdAt: timestamp
                 }
               }
             },
