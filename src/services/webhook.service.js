@@ -91,28 +91,34 @@ class WebhookService {
 
     // Process captured lists
     if (task.capturedLists) {
-      // Use originUrl directly if it's valid, otherwise extract domain name
+      // Always extract the middle part of the domain as document ID
       let docId = "unknown";
 
-      if (originUrl && originUrl !== "unknown") {
-        // If we have a valid origin URL, use it directly as the document ID
-        docId = originUrl;
-        console.log(
-          "[BrowseAI Webhook] Using origin URL as document ID:",
-          docId
-        );
-      } else {
-        // Fallback to extracting domain name from URL
-        try {
-          const urlObj = new URL(originUrl); // e.g., https://www.espn.ph
-          const hostnameParts = urlObj.hostname.split("."); // ['www', 'espn', 'ph']
-          docId =
-            hostnameParts.length > 1
-              ? hostnameParts[hostnameParts.length - 2]
-              : hostnameParts[0];
-        } catch (err) {
-          console.warn("Failed to parse originUrl:", originUrl);
+      try {
+        if (originUrl && originUrl !== "unknown") {
+          const urlObj = new URL(originUrl); // e.g., https://www.espn.com.ph
+          const hostnameParts = urlObj.hostname.split("."); // ['www', 'espn', 'com', 'ph']
+          
+          // Extract the middle part (like "espn" from "www.espn.com.ph")
+          if (hostnameParts.length >= 3) {
+            // For domains with at least 3 parts (www.espn.com, www.espn.ph, etc.)
+            // Take the second part (index 1)
+            docId = hostnameParts[1];
+          } else if (hostnameParts.length === 2) {
+            // For domains with 2 parts (espn.com, espn.ph, etc.)
+            // Take the first part (index 0)
+            docId = hostnameParts[0];
+          } else {
+            // For single part domains (localhost, etc.)
+            docId = hostnameParts[0];
+          }
+          
+          console.log(
+            `[BrowseAI Webhook] Extracted '${docId}' from URL: ${originUrl}`
+          );
         }
+      } catch (err) {
+        console.warn("Failed to parse originUrl:", originUrl);
       }
 
       const listsRef = this.db.collection("captured_lists").doc(docId);
