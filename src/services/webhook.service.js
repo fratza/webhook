@@ -128,7 +128,7 @@ class WebhookService {
       const docSnapshot = await listsRef.get();
 
       // Remove 'Position' from listsData
-      const { Position, ...filteredListsData } = listsData;
+      const { Position, _STATUS, ...filteredListsData } = listsData;
 
       if (docSnapshot.exists) {
         console.log(
