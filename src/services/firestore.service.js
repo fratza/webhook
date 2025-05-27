@@ -66,6 +66,84 @@ class FirestoreService {
       throw error;
     }
   }
+
+  /**
+   * Fetch array names (categories) from a document
+   * @param {string} collection - Collection name
+   * @param {string} documentId - Document ID
+   * @returns {Promise<Object>} Object containing array names in the document
+   */
+  async fetchCategoriesFromDocument(collection, documentId) {
+    try {
+      const docRef = this.db.collection(collection).doc(documentId);
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+        return { success: false, error: 'Document not found' };
+      }
+
+      const data = doc.data();
+      
+      // Get the data object which contains the arrays
+      const docData = data.data || {};
+      
+      // Find all keys that are arrays
+      const categories = Object.keys(docData).filter(key => {
+        return Array.isArray(docData[key]);
+      });
+
+      return {
+        success: true,
+        documentId,
+        categories,
+        originUrl: docData.originUrl || null
+      };
+    } catch (error) {
+      console.error("Error fetching categories from Firestore:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch data from a specific category in a document
+   * @param {string} collection - Collection name
+   * @param {string} documentId - Document ID
+   * @param {string} categoryName - Category/array name to fetch
+   * @returns {Promise<Object>} Object containing the category data
+   */
+  async fetchCategoryData(collection, documentId, categoryName) {
+    try {
+      const docRef = this.db.collection(collection).doc(documentId);
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+        return { success: false, error: 'Document not found' };
+      }
+
+      const data = doc.data();
+      const docData = data.data || {};
+      
+      // Check if the category exists and is an array
+      if (!docData[categoryName] || !Array.isArray(docData[categoryName])) {
+        return { 
+          success: false, 
+          error: `Category '${categoryName}' not found or is not an array` 
+        };
+      }
+
+      return {
+        success: true,
+        documentId,
+        categoryName,
+        data: docData[categoryName],
+        count: docData[categoryName].length,
+        originUrl: docData.originUrl || null
+      };
+    } catch (error) {
+      console.error("Error fetching category data from Firestore:", error);
+      throw error;
+    }
+  }
 }
 
 module.exports = FirestoreService;

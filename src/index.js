@@ -267,6 +267,56 @@ app.get("/api/firestore/:collection/:documentId", async (req, res) => {
   }
 });
 
+// Endpoint to fetch categories (array names) from a document
+app.get("/api/firestore/:collection/:documentId/category", async (req, res) => {
+  try {
+    const { collection, documentId } = req.params;
+
+    const result = await firestoreService.fetchCategoriesFromDocument(
+      collection,
+      documentId
+    );
+
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching categories from Firestore:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch categories from Firestore" });
+  }
+});
+
+// Endpoint to fetch data from a specific category in a document
+app.get(
+  "/api/firestore/:collection/:documentId/:categoryName",
+  async (req, res) => {
+    try {
+      const { collection, documentId, categoryName } = req.params;
+
+      const result = await firestoreService.fetchCategoryData(
+        collection,
+        documentId,
+        categoryName
+      );
+
+      if (!result.success) {
+        return res.status(404).json({ error: result.error });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching category data from Firestore:", error);
+      res
+        .status(500)
+        .json({ error: "Failed to fetch category data from Firestore" });
+    }
+  }
+);
+
 /**
  * Starts the webhook middleware server.
  *
