@@ -1,3 +1,5 @@
+import dayjs from "dayjs";
+
 class WebhookService {
   constructor(admin, db) {
     this.admin = admin;
@@ -59,6 +61,9 @@ class WebhookService {
     const originUrl = firstValue || "unknown";
 
     const timestamp = this.admin.firestore.Timestamp.fromDate(new Date());
+    const formattedCreatedAt = dayjs(timestamp.toDate()).format(
+      "MMMM D, YYYY h:mm A"
+    );
     const batch = this.db.batch();
 
     // Process captured texts
@@ -91,69 +96,15 @@ class WebhookService {
 
     // Process captured lists
     if (task.capturedLists) {
-      // Always extract the middle part of the domain as document ID
-      let docId = "unknown";
-
-      try {
-        if (originUrl && originUrl !== "unknown") {
-          const urlObj = new URL(originUrl); // e.g., https://www.espn.com.ph
-          const hostnameParts = urlObj.hostname.split("."); // ['www', 'espn', 'com', 'ph']
-
-          // Extract the middle part (like "espn" from "www.espn.com.ph")
-          if (hostnameParts.length >= 3) {
-            // For domains with at least 3 parts (www.espn.com, www.espn.ph, etc.)
-            // Take the second part (index 1)
-            docId = hostnameParts[1];
-          } else if (hostnameParts.length === 2) {
-            // For domains with 2 parts (espn.com, espn.ph, etc.)
-            // Take the first part (index 0)
-            docId = hostnameParts[0];
-          } else {
-            // For single part domains (localhost, etc.)
-            docId = hostnameParts[0];
-          }
-
-          console.log(
-            `[BrowseAI Webhook] Extracted '${docId}' from URL: ${originUrl}`
-          );
-        }
-      } catch (err) {
-        console.warn("Failed to parse originUrl:", originUrl);
-      }
+      // Extract the middle part of the domain as document ID
+      const docId = this.extractDomainIdentifier(originUrl);
 
       const listsRef = this.db.collection("captured_lists").doc(docId);
       const listsData = this.convertToFirestoreFormat(task.capturedLists);
 
-      // Check if document already exists
       const docSnapshot = await listsRef.get();
 
-      // Process listsData to remove unwanted fields at all nesting levels
-      const cleanData = (obj) => {
-        if (!obj || typeof obj !== 'object') return obj;
-        
-        // Handle arrays
-        if (Array.isArray(obj)) {
-          return obj.map(item => cleanData(item));
-        }
-        
-        // Handle objects
-        const cleaned = {};
-        for (const [key, value] of Object.entries(obj)) {
-          // Skip position/Position and _STATUS fields
-          if (key.toLowerCase() !== 'position' && key !== '_STATUS') {
-            // Recursively clean nested objects
-            cleaned[key] = typeof value === 'object' ? cleanData(value) : value;
-          }
-        }
-        return cleaned;
-      };
-      
-      // Clean the data at all levels
-      const processedData = cleanData(listsData);
-
-      console.log(
-        "[BrowseAI Webhook] Removed position/Position and _STATUS fields from data at all nesting levels"
-      );
+      const processedData = this.cleanDataFields(listsData);
 
       // Generate a unique ID for each entry
       const entryId = this.admin.firestore.Timestamp.now()
@@ -167,39 +118,48 @@ class WebhookService {
 
         const existingData = docSnapshot.data();
 
-        const mergedData = {
-          ...existingData,
-          data: {
-            ...existingData.data,
-            [taskId]: {
-              entries: {
-                ...((existingData.data &&
-                  existingData.data[taskId] &&
-                  existingData.data[taskId].entries) ||
-                  {}),
-                [entryId]: {
-                  ...processedData,
-                  createdAt: timestamp,
-                },
-              },
-            },
-          },
-        };
+        // Create a deep copy of the existing data to work with
+        const mergedData = JSON.parse(JSON.stringify(existingData));
 
+        // Make sure the data structure exists
+        if (!mergedData.data) mergedData.data = {};
+        if (!mergedData.data.entries) mergedData.data.entries = {};
+
+        // Set or update the originUrl
+        mergedData.data.originUrl = mergedData.data.originUrl || originUrl;
+
+        // Process each key in the processed data
+        Object.keys(processedData).forEach((key) => {
+          const newValue = processedData[key];
+
+          // Check if this is an array that needs to be appended
+          if (Array.isArray(newValue)) {
+            // Get existing array if it exists
+            const existingArray = mergedData.data.entries[key] || [];
+
+            // Append new items to existing array
+            mergedData.data.entries[key] = [...existingArray, ...newValue];
+            console.log(
+              `[BrowseAI Webhook] Appended ${newValue.length} new items to existing ${key} array`
+            );
+          } else {
+            // For non-array values, just use the new value
+            mergedData.data.entries[key] = newValue;
+          }
+        });
+
+        // Add metadata to the entry
+        // mergedData.data.lastUpdated = timestamp;
+        // mergedData.data.lastUpdatedFormatted = formattedCreatedAt;
         batch.set(listsRef, mergedData);
       } else {
         // Document doesn't exist, create new document
         const prepData = {
           data: {
-            originUrl,
-            [taskId]: {
-              entries: {
-                [entryId]: {
-                  ...processedData,
-                  createdAt: timestamp,
-                },
-              },
-            },
+            // originUrl,
+            entries: processedData,
+            // lastUpdated: timestamp,
+            // lastUpdatedFormatted: formattedCreatedAt
           },
         };
         batch.set(listsRef, prepData);
@@ -214,6 +174,104 @@ class WebhookService {
       message: "Webhook processed successfully",
       taskId,
     };
+  }
+
+  /**
+   * Extract a domain identifier from a URL
+   * @param {string} url - The URL to extract from
+   * @returns {string} The extracted domain identifier
+   */
+  extractDomainIdentifier(url) {
+    let docId = "unknown";
+
+    try {
+      if (url && url !== "unknown") {
+        const urlObj = new URL(url); // e.g., https://www.espn.com.ph
+        const hostnameParts = urlObj.hostname.split("."); // ['www', 'espn', 'com', 'ph']
+
+        // Extract the middle part (like "espn" from "www.espn.com.ph")
+        if (hostnameParts.length >= 3) {
+          // For domains with at least 3 parts (www.espn.com, www.espn.ph, etc.)
+          // Take the second part (index 1)
+          docId = hostnameParts[1];
+        } else if (hostnameParts.length === 2) {
+          // For domains with 2 parts (espn.com, espn.ph, etc.)
+          // Take the first part (index 0)
+          docId = hostnameParts[0];
+        } else {
+          // For single part domains (localhost, etc.)
+          docId = hostnameParts[0];
+        }
+
+        console.log(`[BrowseAI Webhook] Extracted '${docId}' from URL: ${url}`);
+      }
+    } catch (err) {
+      console.warn("Failed to parse URL:", url);
+    }
+
+    return docId;
+  }
+
+  /**
+   * Clean data by removing unwanted fields at all nesting levels
+   * and add optional Image URL field if needed
+   * @param {Object} data - The data to clean
+   * @returns {Object} Cleaned data with unwanted fields removed and optional fields added
+   */
+  cleanDataFields(data) {
+    if (!data || typeof data !== "object") return data;
+
+    // Handle arrays
+    if (Array.isArray(data)) {
+      return data.map((item) => this.cleanDataFields(item));
+    }
+
+    // Handle objects
+    const cleaned = {};
+
+    // Process object entries in order
+    const entries = Object.entries(data);
+    for (let i = 0; i < entries.length; i++) {
+      const [key, value] = entries[i];
+
+      // Skip position/Position and _STATUS fields
+      if (key.toLowerCase() !== "position" && key !== "_STATUS") {
+        // Check if this is an array (like Sports Headlines, etc.)
+        if (Array.isArray(value)) {
+          cleaned[key] = value.map((item, index) => {
+            const processedItem = this.cleanDataFields(item);
+
+            // Generate a unique ID for this item
+            const uid = `${key
+              .toLowerCase()
+              .replace(/\s+/g, "-")}-${Date.now()}-${index}`;
+
+            const newLabel = {
+              uid: uid,
+              Title: key,
+            };
+
+            // Add all existing fields from the processed item
+            Object.keys(processedItem).forEach((itemKey) => {
+              newLabel[itemKey] = processedItem[itemKey];
+
+              // Add empty Image URL field right after Article Link if it exists
+              if (itemKey === "Article Link" && !processedItem["Image URL"]) {
+                newLabel["Image URL"] = "";
+              }
+            });
+
+            return newLabel;
+          });
+        } else {
+          // Recursively clean nested objects
+          cleaned[key] =
+            typeof value === "object" ? this.cleanDataFields(value) : value;
+        }
+      }
+    }
+
+    return cleaned;
   }
 }
 
