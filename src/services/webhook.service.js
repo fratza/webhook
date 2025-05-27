@@ -254,7 +254,7 @@ class WebhookService {
               newLabel[itemKey] = processedItem[itemKey];
 
               // Add Image URL if it's missing
-              if (!("Image URL" in processedItem)) newLabel["Image URL"] = "";
+              if (!("ImageUrl" in processedItem)) newLabel["ImageUrl"] = "";
             });
 
             return newLabel;
