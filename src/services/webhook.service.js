@@ -66,8 +66,6 @@ class WebhookService {
       const textsData = this.convertToFirestoreFormat(task.capturedTexts);
       batch.set(textsRef, {
         // taskId,
-        originUrl,
-        createdAt: timestamp,
         data: textsData,
       });
     }
@@ -82,8 +80,6 @@ class WebhookService {
       );
       batch.set(screenshotsRef, {
         // taskId,
-        originUrl,
-        createdAt: timestamp,
         data: screenshotsData,
       });
     }
@@ -108,45 +104,17 @@ class WebhookService {
           `[BrowseAI Webhook] Document '${docName}' already exists, updating data...`
         );
 
-        const existingData = docSnapshot.data();
+        const appendData = this.appendNewData(
+          docSnapshot,
+          processedData,
+          originUrl
+        );
 
-        // Create a deep copy of the existing data to work with
-        const mergedData = JSON.parse(JSON.stringify(existingData));
-
-        // Ensure base structure exists
-        if (!mergedData.data) mergedData.data = {};
-
-        // Add originUrl at the same level as the array names
-        mergedData.data.originUrl = originUrl;
-
-        // Process each key in the processed data
-        Object.keys(processedData).forEach((key) => {
-          const newValue = processedData[key];
-
-          if (Array.isArray(newValue)) {
-            // If key already exists and is an array, append
-            const existingArray = mergedData.data[key] || [];
-            mergedData.data[key] = [...existingArray, ...newValue];
-
-            console.log(
-              `[BrowseAI Webhook] Appended ${newValue.length} new items to existing ${key} array`
-            );
-          } else {
-            // For non-array values, just use the new value
-            mergedData.data[key] = newValue;
-          }
-        });
-
-        // Add metadata to the entry
-        // mergedData.data.lastUpdated = timestamp;
-        // mergedData.data.lastUpdatedFormatted = formattedCreatedAt;
-        batch.set(listsRef, mergedData);
+        batch.set(listsRef, appendData);
       } else {
         // Document doesn't exist, create new document
         const prepData = {
           data: {
-            // Add originUrl at the same level as the array names
-            originUrl: originUrl,
             ...processedData,
           },
         };
@@ -166,6 +134,39 @@ class WebhookService {
       message: "Webhook processed successfully",
       docName,
     };
+  }
+
+  appendNewData(docSnapshot, processedData, originUrl) {
+    const existingData = docSnapshot.data();
+
+    // Create a deep copy of the existing data to work with
+    const mergedData = JSON.parse(JSON.stringify(existingData));
+
+    // Ensure base structure exists
+    if (!mergedData.data) mergedData.data = {};
+
+    // Add originUrl at the same level as the array names
+    mergedData.data.originUrl = originUrl;
+
+    // Process each key in the processed data
+    Object.keys(processedData).forEach((key) => {
+      const newValue = processedData[key];
+
+      if (Array.isArray(newValue)) {
+        // If key already exists and is an array, append
+        const existingArray = mergedData.data[key] || [];
+        mergedData.data[key] = [...existingArray, ...newValue];
+
+        console.log(
+          `[BrowseAI Webhook] Appended ${newValue.length} new items to existing ${key} array`
+        );
+      } else {
+        // For non-array values, just use the new value
+        mergedData.data[key] = newValue;
+      }
+    });
+
+    return mergedData;
   }
 
   /**

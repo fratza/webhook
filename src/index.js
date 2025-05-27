@@ -33,41 +33,6 @@ app.use(bodyParser.json());
 // Store registered webhooks
 const webhooks = new Map();
 
-// Endpoint to fetch data from Firestore
-app.get("/api/firestore/:collection", async (req, res) => {
-  try {
-    const { collection } = req.params;
-    const documentIds = await firestoreService.fetchFromCollection(collection);
-    res.json(documentIds);
-  } catch (error) {
-    console.error("Error fetching from Firestore:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch document IDs from Firestore" });
-  }
-});
-
-// Endpoint to fetch a single document by ID
-app.get("/api/firestore/:collection/:documentId", async (req, res) => {
-  try {
-    const { collection, documentId } = req.params;
-
-    const document = await firestoreService.fetchDocumentById(
-      collection,
-      documentId
-    );
-
-    if (!document) {
-      return res.status(404).json({ error: "Document not found" });
-    }
-
-    res.json(document);
-  } catch (error) {
-    console.error("Error fetching document from Firestore:", error);
-    res.status(500).json({ error: "Failed to fetch document from Firestore" });
-  }
-});
-
 // Endpoint to delete a document by ID
 app.delete(
   "/api/delete/firestore/:collection/:documentId",
@@ -133,25 +98,6 @@ app.post("/api/webhooks/register", (req, res) => {
     secret,
     message: "Webhook registered successfully",
   });
-});
-
-/**
- * Lists all registered webhooks.
- *
- * @route GET /api/webhooks
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- *
- * @returns {200} Returns 200 with an array of registered webhooks
- */
-app.get("/api/webhooks", (req, res) => {
-  const webhookList = Array.from(webhooks.entries()).map(([id, data]) => ({
-    id,
-    url: data.url,
-    events: data.events,
-  }));
-
-  res.json(webhookList);
 });
 
 // Delete a webhook
@@ -247,13 +193,6 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
     return originalJson.call(this, body);
   };
 
-  console.log("[Webhook] Incoming request:");
-  console.log("  URL Param - webhookId:", webhookId);
-  console.log("  Method:", req.method);
-  console.log("  Headers:", JSON.stringify(req.headers, null, 2));
-  console.log("  Query Params:", JSON.stringify(req.query, null, 2));
-  console.log("  Body:", JSON.stringify(req.body, null, 2));
-
   try {
     if (webhookId === "browseAI") {
       console.log(`Initiating ${webhookId} process...`);
@@ -269,6 +208,62 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
       error: error.message || "Failed to process webhook",
       details: error.stack,
     });
+  }
+});
+
+// GET
+
+/**
+ * Lists all registered webhooks.
+ *
+ * @route GET /api/webhooks
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ *
+ * @returns {200} Returns 200 with an array of registered webhooks
+ */
+app.get("/api/webhooks", (req, res) => {
+  const webhookList = Array.from(webhooks.entries()).map(([id, data]) => ({
+    id,
+    url: data.url,
+    events: data.events,
+  }));
+
+  res.json(webhookList);
+});
+
+// Endpoint to fetch data from Firestore
+app.get("/api/firestore/:collection", async (req, res) => {
+  try {
+    const { collection } = req.params;
+    const documentIds = await firestoreService.fetchFromCollection(collection);
+    res.json(documentIds);
+  } catch (error) {
+    console.error("Error fetching from Firestore:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch document IDs from Firestore" });
+  }
+});
+
+// Endpoint to fetch a single document by ID
+app.get("/api/firestore/:collection/:documentId", async (req, res) => {
+  try {
+    const { collection, documentId } = req.params;
+
+    const document = await firestoreService.fetchDocumentById(
+      collection,
+      documentId
+    );
+
+    if (!document) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    res.json(document);
+  } catch (error) {
+    console.error("Error fetching document from Firestore:", error);
+    res.status(500).json({ error: "Failed to fetch document from Firestore" });
   }
 });
 
