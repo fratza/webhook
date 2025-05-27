@@ -296,18 +296,43 @@ app.get(
   async (req, res) => {
     try {
       const { collection, documentId, subcategory } = req.params;
-
-      const result = await firestoreService.fetchCategoryData(
+      
+      // Make subcategory case-insensitive by converting to lowercase
+      // We'll search through all categories to find a case-insensitive match
+      const result = await firestoreService.fetchCategoriesFromDocument(
         collection,
-        documentId,
-        subcategory
+        documentId
       );
-
+      
       if (!result.success) {
         return res.status(404).json({ error: result.error });
       }
+      
+      // Find the actual category name with correct case
+      const subcategoryLower = subcategory.toLowerCase();
+      const matchedCategory = result.categories.find(
+        category => category.toLowerCase() === subcategoryLower
+      );
+      
+      if (!matchedCategory) {
+        return res.status(404).json({ 
+          error: `Category '${subcategory}' not found`,
+          availableCategories: result.categories 
+        });
+      }
+      
+      // Use the correctly cased category name for the data fetch
+      const categoryResult = await firestoreService.fetchCategoryData(
+        collection,
+        documentId,
+        matchedCategory
+      );
 
-      res.json(result);
+      if (!categoryResult.success) {
+        return res.status(404).json({ error: categoryResult.error });
+      }
+
+      res.json(categoryResult);
     } catch (error) {
       console.error("Error fetching subcategory data from Firestore:", error);
       res
