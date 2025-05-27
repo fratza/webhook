@@ -290,12 +290,46 @@ app.get("/api/firestore/:collection/:documentId/category", async (req, res) => {
   }
 });
 
+// Endpoint to handle category/subcategory pattern
+app.get(
+  "/api/firestore/:collection/:documentId/category=:subcategory",
+  async (req, res) => {
+    try {
+      const { collection, documentId, subcategory } = req.params;
+
+      const result = await firestoreService.fetchCategoryData(
+        collection,
+        documentId,
+        subcategory
+      );
+
+      if (!result.success) {
+        return res.status(404).json({ error: result.error });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching subcategory data from Firestore:", error);
+      res
+        .status(500)
+        .json({ error: "Failed to fetch subcategory data from Firestore" });
+    }
+  }
+);
+
 // Endpoint to fetch data from a specific category in a document
 app.get(
   "/api/firestore/:collection/:documentId/:categoryName",
   async (req, res) => {
     try {
       const { collection, documentId, categoryName } = req.params;
+
+      // Skip if the categoryName is 'category' as it's handled by another route
+      if (categoryName === "category") {
+        return res
+          .status(404)
+          .json({ error: "Use /category endpoint instead" });
+      }
 
       const result = await firestoreService.fetchCategoryData(
         collection,
@@ -316,8 +350,6 @@ app.get(
     }
   }
 );
-
-
 
 /**
  * Starts the webhook middleware server.
