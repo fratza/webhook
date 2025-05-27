@@ -96,7 +96,6 @@ class FirestoreService {
         success: true,
         documentId,
         categories,
-        originUrl: docData.originUrl || null,
       };
     } catch (error) {
       console.error("Error fetching categories from Firestore:", error);
@@ -153,7 +152,6 @@ class FirestoreService {
         categoryName,
         data: sortedData,
         count: sortedData.length,
-        originUrl: docData.originUrl || null,
       };
     } catch (error) {
       console.error("Error fetching category data from Firestore:", error);
