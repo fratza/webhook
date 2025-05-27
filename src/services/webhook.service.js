@@ -152,7 +152,7 @@ class WebhookService {
         const prepData = {
           originUrl: originUrl,
           data: {
-            processedData,
+            ...processedData,
           },
         };
         batch.set(listsRef, prepData);
