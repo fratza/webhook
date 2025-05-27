@@ -59,6 +59,7 @@ class WebhookService {
     const [firstKey, firstValue] = Object.entries(inputParams)[0] || [];
 
     const originUrl = firstValue || "unknown";
+    const docId = this.extractDomainIdentifier(originUrl);
 
     const timestamp = this.admin.firestore.Timestamp.fromDate(new Date());
     // const formattedCreatedAt = dayjs(timestamp.toDate()).format(
@@ -68,7 +69,6 @@ class WebhookService {
 
     // Process captured texts
     if (task.capturedTexts) {
-      const docId = this.extractDomainIdentifier(originUrl);
       const textsRef = this.db.collection("captured_texts").doc(docId);
       const textsData = this.convertToFirestoreFormat(task.capturedTexts);
       batch.set(textsRef, {
@@ -81,7 +81,6 @@ class WebhookService {
 
     // Process captured screenshots
     if (task.capturedScreenshots) {
-      const docId = this.extractDomainIdentifier(originUrl);
       const screenshotsRef = this.db
         .collection("captured_screenshots")
         .doc(docId);
@@ -98,9 +97,6 @@ class WebhookService {
 
     // Process captured lists
     if (task.capturedLists) {
-      // Extract the middle part of the domain as document ID
-      const docId = this.extractDomainIdentifier(originUrl);
-
       const listsRef = this.db.collection("captured_lists").doc(docId);
       const listsData = this.convertToFirestoreFormat(task.capturedLists);
 
