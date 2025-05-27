@@ -52,7 +52,7 @@ class WebhookService {
     //   throw new Error("Task ID is required");
     // }
 
-    const taskId = task.id;
+    // const taskId = task.id;
 
     // Get the first key-value pair in inputParameters
     const inputParams = task.inputParameters || {};
@@ -68,10 +68,11 @@ class WebhookService {
 
     // Process captured texts
     if (task.capturedTexts) {
-      const textsRef = this.db.collection("captured_texts").doc(taskId);
+      const docId = this.extractDomainIdentifier(originUrl);
+      const textsRef = this.db.collection("captured_texts").doc(docId);
       const textsData = this.convertToFirestoreFormat(task.capturedTexts);
       batch.set(textsRef, {
-        taskId,
+        // taskId,
         originUrl,
         createdAt: timestamp,
         data: textsData,
@@ -80,14 +81,15 @@ class WebhookService {
 
     // Process captured screenshots
     if (task.capturedScreenshots) {
+      const docId = this.extractDomainIdentifier(originUrl);
       const screenshotsRef = this.db
         .collection("captured_screenshots")
-        .doc(taskId);
+        .doc(docId);
       const screenshotsData = this.convertToFirestoreFormat(
         task.capturedScreenshots
       );
       batch.set(screenshotsRef, {
-        taskId,
+        // taskId,
         originUrl,
         createdAt: timestamp,
         data: screenshotsData,
@@ -166,13 +168,10 @@ class WebhookService {
       }
     }
 
-    await batch.commit();
-    console.log("[BrowseAI Webhook] Successfully processed task:", taskId);
-
     return {
       success: true,
       message: "Webhook processed successfully",
-      taskId,
+      docId,
     };
   }
 
