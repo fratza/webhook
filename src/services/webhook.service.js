@@ -104,11 +104,6 @@ class WebhookService {
 
       const processedData = this.cleanDataFields(listsData);
 
-      // Generate a unique ID for each entry
-      const entryId = this.admin.firestore.Timestamp.now()
-        .toMillis()
-        .toString();
-
       if (docSnapshot.exists) {
         console.log(
           `[BrowseAI Webhook] Document '${docId}' already exists, updating data...`
@@ -164,6 +159,10 @@ class WebhookService {
       }
     }
 
+    // Commit all batched operations to Firestore
+    await batch.commit();
+    console.log("[BrowseAI Webhook] Successfully processed and saved data for document:", docId);
+    
     return {
       success: true,
       message: "Webhook processed successfully",
