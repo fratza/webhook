@@ -48,28 +48,21 @@ class WebhookService {
     );
 
     const task = data?.task;
-    // if (!task?.id) {
-    //   throw new Error("Task ID is required");
-    // }
-
-    // const taskId = task.id;
 
     // Get the first key-value pair in inputParameters
     const inputParams = task.inputParameters || {};
     const [firstKey, firstValue] = Object.entries(inputParams)[0] || [];
 
     const originUrl = firstValue || "unknown";
-    const docId = this.extractDomainIdentifier(originUrl);
+    const docName = this.extractDomainIdentifier(originUrl);
 
     const timestamp = this.admin.firestore.Timestamp.fromDate(new Date());
-    // const formattedCreatedAt = dayjs(timestamp.toDate()).format(
-    //   "MMMM D, YYYY h:mm A"
-    // );
+
     const batch = this.db.batch();
 
     // Process captured texts
     if (task.capturedTexts) {
-      const textsRef = this.db.collection("captured_texts").doc(docId);
+      const textsRef = this.db.collection("captured_texts").doc(docName);
       const textsData = this.convertToFirestoreFormat(task.capturedTexts);
       batch.set(textsRef, {
         // taskId,
@@ -83,7 +76,7 @@ class WebhookService {
     if (task.capturedScreenshots) {
       const screenshotsRef = this.db
         .collection("captured_screenshots")
-        .doc(docId);
+        .doc(docName);
       const screenshotsData = this.convertToFirestoreFormat(
         task.capturedScreenshots
       );
@@ -97,18 +90,22 @@ class WebhookService {
 
     // Process captured lists
     if (task.capturedLists) {
-      const listsRef = this.db.collection("captured_lists").doc(docId);
+      const listsRef = this.db.collection("captured_lists").doc(docName);
       const listsData = this.convertToFirestoreFormat(task.capturedLists);
 
       const docSnapshot = await listsRef.get();
       const existingData = docSnapshot.exists ? docSnapshot.data() : null;
 
-      // Pass existing data to cleanDataFields for array validation
-      const processedData = this.cleanDataFields(listsData, existingData);
+      // Pass existing data and originUrl to cleanDataFields
+      const processedData = this.cleanDataFields(
+        listsData,
+        existingData,
+        originUrl
+      );
 
       if (docSnapshot.exists) {
         console.log(
-          `[BrowseAI Webhook] Document '${docId}' already exists, updating data...`
+          `[BrowseAI Webhook] Document '${docName}' already exists, updating data...`
         );
 
         const existingData = docSnapshot.data();
@@ -116,30 +113,27 @@ class WebhookService {
         // Create a deep copy of the existing data to work with
         const mergedData = JSON.parse(JSON.stringify(existingData));
 
-        // Make sure the data structure exists
+        // Ensure base structure exists
         if (!mergedData.data) mergedData.data = {};
-        if (!mergedData.data.entries) mergedData.data.entries = {};
 
-        // Set or update the originUrl
-        mergedData.data.originUrl = mergedData.data.originUrl || originUrl;
+        // Add originUrl at the same level as the array names
+        mergedData.data.originUrl = originUrl;
 
         // Process each key in the processed data
         Object.keys(processedData).forEach((key) => {
           const newValue = processedData[key];
 
-          // Check if this is an array that needs to be appended
           if (Array.isArray(newValue)) {
-            // Get existing array if it exists
-            const existingArray = mergedData.data.entries[key] || [];
+            // If key already exists and is an array, append
+            const existingArray = mergedData.data[key] || [];
+            mergedData.data[key] = [...existingArray, ...newValue];
 
-            // Append new items to existing array
-            mergedData.data.entries[key] = [...existingArray, ...newValue];
             console.log(
               `[BrowseAI Webhook] Appended ${newValue.length} new items to existing ${key} array`
             );
           } else {
             // For non-array values, just use the new value
-            mergedData.data.entries[key] = newValue;
+            mergedData.data[key] = newValue;
           }
         });
 
@@ -150,8 +144,9 @@ class WebhookService {
       } else {
         // Document doesn't exist, create new document
         const prepData = {
-          originUrl: originUrl,
           data: {
+            // Add originUrl at the same level as the array names
+            originUrl: originUrl,
             ...processedData,
           },
         };
@@ -163,13 +158,13 @@ class WebhookService {
     await batch.commit();
     console.log(
       "[BrowseAI Webhook] Successfully processed and saved data for document:",
-      docId
+      docName
     );
 
     return {
       success: true,
       message: "Webhook processed successfully",
-      docId,
+      docName,
     };
   }
 
@@ -179,34 +174,26 @@ class WebhookService {
    * @returns {string} The extracted domain identifier
    */
   extractDomainIdentifier(url) {
-    let docId = "unknown";
+    let docName = "unknown";
 
     try {
       if (url && url !== "unknown") {
-        const urlObj = new URL(url); // e.g., https://www.espn.com.ph
-        const hostnameParts = urlObj.hostname.split("."); // ['www', 'espn', 'com', 'ph']
+        const urlObj = new URL(url); // Parse the URL
+        const parts = urlObj.hostname.split("."); // Split the hostname
 
-        // Extract the middle part (like "espn" from "www.espn.com.ph")
-        if (hostnameParts.length >= 3) {
-          // For domains with at least 3 parts (www.espn.com, www.espn.ph, etc.)
-          // Take the second part (index 1)
-          docId = hostnameParts[1];
-        } else if (hostnameParts.length === 2) {
-          // For domains with 2 parts (espn.com, espn.ph, etc.)
-          // Take the first part (index 0)
-          docId = hostnameParts[0];
+        // Extract the last 2 segments of the domain
+        if (parts.length >= 2) {
+          const domainParts = parts.slice(-2); // e.g., ['espn', 'com']
+          docName = domainParts.join(".");
         } else {
-          // For single part domains (localhost, etc.)
-          docId = hostnameParts[0];
+          docName = urlObj.hostname;
         }
-
-        console.log(`[BrowseAI Webhook] Extracted '${docId}' from URL: ${url}`);
       }
-    } catch (err) {
-      console.warn("Failed to parse URL:", url);
+    } catch (error) {
+      console.warn("Invalid URL:", url);
     }
 
-    return docId;
+    return docName;
   }
 
   /**
@@ -214,9 +201,10 @@ class WebhookService {
    * and add optional Image URL field if needed
    * @param {Object} data - The data to clean
    * @param {Object} existingData - Optional existing data to check for arrays
+   * @param {string} originUrl - The origin URL to include in each item
    * @returns {Object} Cleaned data with unwanted fields removed and optional fields added
    */
-  cleanDataFields(data, existingData = null) {
+  cleanDataFields(data, existingData = null, originUrl = "unknown") {
     if (!data || typeof data !== "object") return data;
 
     // Handle arrays
@@ -245,7 +233,11 @@ class WebhookService {
 
           // Process the current array items
           const processedItems = value.map((item, index) => {
-            const processedItem = this.cleanDataFields(item, existingData);
+            const processedItem = this.cleanDataFields(
+              item,
+              existingData,
+              originUrl
+            );
 
             // Generate a unique ID for this item
             const uid = `${key
@@ -255,6 +247,7 @@ class WebhookService {
             const newLabel = {
               uid: uid,
               Title: key,
+              originUrl: originUrl, // Add originUrl to each item
             };
 
             // Add all existing fields from the processed item
