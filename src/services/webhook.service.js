@@ -48,9 +48,9 @@ class WebhookService {
     );
 
     const task = data?.task;
-    if (!task?.id) {
-      throw new Error("Task ID is required");
-    }
+    // if (!task?.id) {
+    //   throw new Error("Task ID is required");
+    // }
 
     const taskId = task.id;
 
