@@ -101,8 +101,10 @@ class WebhookService {
       const listsData = this.convertToFirestoreFormat(task.capturedLists);
 
       const docSnapshot = await listsRef.get();
+      const existingData = docSnapshot.exists ? docSnapshot.data() : null;
 
-      const processedData = this.cleanDataFields(listsData);
+      // Pass existing data to cleanDataFields for array validation
+      const processedData = this.cleanDataFields(listsData, existingData);
 
       if (docSnapshot.exists) {
         console.log(
@@ -148,11 +150,9 @@ class WebhookService {
       } else {
         // Document doesn't exist, create new document
         const prepData = {
+          originUrl: originUrl,
           data: {
-            // originUrl,
-            entries: processedData,
-            // lastUpdated: timestamp,
-            // lastUpdatedFormatted: formattedCreatedAt
+            processedData,
           },
         };
         batch.set(listsRef, prepData);
@@ -161,8 +161,11 @@ class WebhookService {
 
     // Commit all batched operations to Firestore
     await batch.commit();
-    console.log("[BrowseAI Webhook] Successfully processed and saved data for document:", docId);
-    
+    console.log(
+      "[BrowseAI Webhook] Successfully processed and saved data for document:",
+      docId
+    );
+
     return {
       success: true,
       message: "Webhook processed successfully",
@@ -210,14 +213,15 @@ class WebhookService {
    * Clean data by removing unwanted fields at all nesting levels
    * and add optional Image URL field if needed
    * @param {Object} data - The data to clean
+   * @param {Object} existingData - Optional existing data to check for arrays
    * @returns {Object} Cleaned data with unwanted fields removed and optional fields added
    */
-  cleanDataFields(data) {
+  cleanDataFields(data, existingData = null) {
     if (!data || typeof data !== "object") return data;
 
     // Handle arrays
     if (Array.isArray(data)) {
-      return data.map((item) => this.cleanDataFields(item));
+      return data.map((item) => this.cleanDataFields(item, existingData));
     }
 
     // Handle objects
@@ -232,8 +236,16 @@ class WebhookService {
       if (key.toLowerCase() !== "position" && key !== "_STATUS") {
         // Check if this is an array (like Sports Headlines, etc.)
         if (Array.isArray(value)) {
-          cleaned[key] = value.map((item, index) => {
-            const processedItem = this.cleanDataFields(item);
+          // Check if this array already exists in the existing data
+          const existingArray =
+            existingData &&
+            existingData.data &&
+            existingData.data.entries &&
+            existingData.data.entries[key];
+
+          // Process the current array items
+          const processedItems = value.map((item, index) => {
+            const processedItem = this.cleanDataFields(item, existingData);
 
             // Generate a unique ID for this item
             const uid = `${key
@@ -249,18 +261,31 @@ class WebhookService {
             Object.keys(processedItem).forEach((itemKey) => {
               newLabel[itemKey] = processedItem[itemKey];
 
-              // Add empty Image URL field right after Article Link if it exists
-              if (itemKey === "Article Link" && !processedItem["Image URL"]) {
-                newLabel["Image URL"] = "";
-              }
+              // Add Image URL if it's missing
+              if (!("Image URL" in processedItem)) newLabel["Image URL"] = "";
             });
 
             return newLabel;
           });
+
+          // If the array already exists, append to it; otherwise create a new one
+          if (existingArray && Array.isArray(existingArray)) {
+            console.log(
+              `[BrowseAI Webhook] Found existing array for '${key}', appending ${processedItems.length} new items`
+            );
+            cleaned[key] = [...existingArray, ...processedItems];
+          } else {
+            console.log(
+              `[BrowseAI Webhook] Creating new array for '${key}' with ${processedItems.length} items`
+            );
+            cleaned[key] = processedItems;
+          }
         } else {
           // Recursively clean nested objects
           cleaned[key] =
-            typeof value === "object" ? this.cleanDataFields(value) : value;
+            typeof value === "object"
+              ? this.cleanDataFields(value, existingData)
+              : value;
         }
       }
     }
