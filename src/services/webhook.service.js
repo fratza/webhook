@@ -1,4 +1,4 @@
-import dayjs from "dayjs";
+// import dayjs from "dayjs";
 
 class WebhookService {
   constructor(admin, db) {
@@ -61,9 +61,9 @@ class WebhookService {
     const originUrl = firstValue || "unknown";
 
     const timestamp = this.admin.firestore.Timestamp.fromDate(new Date());
-    const formattedCreatedAt = dayjs(timestamp.toDate()).format(
-      "MMMM D, YYYY h:mm A"
-    );
+    // const formattedCreatedAt = dayjs(timestamp.toDate()).format(
+    //   "MMMM D, YYYY h:mm A"
+    // );
     const batch = this.db.batch();
 
     // Process captured texts
