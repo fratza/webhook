@@ -52,15 +52,15 @@ class FirestoreService {
   async deleteDocumentById(collection, documentId) {
     try {
       const docRef = this.db.collection(collection).doc(documentId);
-      
+
       // Check if document exists before deleting
       const doc = await docRef.get();
       if (!doc.exists) {
-        return { success: false, error: 'Document not found' };
+        return { success: false, error: "Document not found" };
       }
-      
+
       await docRef.delete();
-      return { success: true, message: 'Document deleted successfully' };
+      return { success: true, message: "Document deleted successfully" };
     } catch (error) {
       console.error("Error deleting document from Firestore:", error);
       throw error;
@@ -79,16 +79,16 @@ class FirestoreService {
       const doc = await docRef.get();
 
       if (!doc.exists) {
-        return { success: false, error: 'Document not found' };
+        return { success: false, error: "Document not found" };
       }
 
       const data = doc.data();
-      
+
       // Get the data object which contains the arrays
       const docData = data.data || {};
-      
+
       // Find all keys that are arrays
-      const categories = Object.keys(docData).filter(key => {
+      const categories = Object.keys(docData).filter((key) => {
         return Array.isArray(docData[key]);
       });
 
@@ -96,7 +96,7 @@ class FirestoreService {
         success: true,
         documentId,
         categories,
-        originUrl: docData.originUrl || null
+        originUrl: docData.originUrl || null,
       };
     } catch (error) {
       console.error("Error fetching categories from Firestore:", error);
@@ -117,27 +117,43 @@ class FirestoreService {
       const doc = await docRef.get();
 
       if (!doc.exists) {
-        return { success: false, error: 'Document not found' };
+        return { success: false, error: "Document not found" };
       }
 
       const data = doc.data();
       const docData = data.data || {};
-      
+
       // Check if the category exists and is an array
       if (!docData[categoryName] || !Array.isArray(docData[categoryName])) {
-        return { 
-          success: false, 
-          error: `Category '${categoryName}' not found or is not an array` 
+        return {
+          success: false,
+          error: `Category '${categoryName}' not found or is not an array`,
         };
       }
+
+      // Sort the data in descending order by publishedDate or createdAt
+      const sortedData = [...docData[categoryName]].sort((a, b) => {
+        // Try to use publishedDate first, then fall back to createdAt
+        const dateA =
+          a.publishedDate || a.createdAt || a.createdAtFormatted || 0;
+        const dateB =
+          b.publishedDate || b.createdAt || b.createdAtFormatted || 0;
+
+        // If the dates are Firestore timestamps, convert them to milliseconds
+        const timeA = dateA && dateA.toMillis ? dateA.toMillis() : dateA;
+        const timeB = dateB && dateB.toMillis ? dateB.toMillis() : dateB;
+
+        // Sort in descending order (newest first)
+        return timeB - timeA;
+      });
 
       return {
         success: true,
         documentId,
         categoryName,
-        data: docData[categoryName],
-        count: docData[categoryName].length,
-        originUrl: docData.originUrl || null
+        data: sortedData,
+        count: sortedData.length,
+        originUrl: docData.originUrl || null,
       };
     } catch (error) {
       console.error("Error fetching category data from Firestore:", error);

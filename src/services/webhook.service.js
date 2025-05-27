@@ -143,9 +143,6 @@ class WebhookService {
     // Ensure base structure exists
     if (!mergedData.data) mergedData.data = {};
 
-    // Add originUrl at the same level as the array names
-    mergedData.data.originUrl = originUrl;
-
     // Process each key in the processed data
     Object.keys(processedData).forEach((key) => {
       const newValue = processedData[key];
