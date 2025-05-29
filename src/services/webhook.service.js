@@ -62,10 +62,39 @@ class WebhookService {
     if (task.capturedTexts) {
       const textsRef = this.db.collection("captured_texts").doc(docName);
       const textsData = this.convertToFirestoreFormat(task.capturedTexts);
-      batch.set(textsRef, {
-        // taskId,
-        data: textsData,
-      });
+
+      const docSnapshot = await textsRef.get();
+      const existingData = docSnapshot.exists ? docSnapshot.data() : null;
+
+      // Pass existing data and originUrl to cleanDataFields
+      const processedData = this.cleanDataFields(
+        textsData,
+        existingData,
+        originUrl,
+        docName
+      );
+
+      if (docSnapshot.exists) {
+        console.log(
+          `[BrowseAI Webhook] Document '${docName}' already exists, updating text data...`
+        );
+
+        const appendData = this.appendNewData(
+          docSnapshot,
+          processedData,
+          originUrl
+        );
+
+        batch.set(textsRef, appendData);
+      } else {
+        // Document doesn't exist, create new document
+        const prepData = {
+          data: {
+            ...processedData,
+          },
+        };
+        batch.set(textsRef, prepData);
+      }
     }
 
     // Process captured screenshots
@@ -90,11 +119,11 @@ class WebhookService {
       const docSnapshot = await listsRef.get();
       const existingData = docSnapshot.exists ? docSnapshot.data() : null;
 
-      // Pass existing data and originUrl to cleanDataFields
       const processedData = this.cleanDataFields(
         listsData,
         existingData,
-        originUrl
+        originUrl,
+        docName
       );
 
       if (docSnapshot.exists) {
@@ -198,14 +227,20 @@ class WebhookService {
    * @param {Object} data - The data to clean
    * @param {Object} existingData - Optional existing data to check for arrays
    * @param {string} originUrl - The origin URL to include in each item
+   * @param {string} docName - The document name derived from the origin URL
    * @returns {Object} Cleaned data with unwanted fields removed and optional fields added
    */
-  cleanDataFields(data, existingData = null, originUrl = "unknown") {
+  cleanDataFields(
+    data,
+    existingData = null,
+    originUrl = "unknown",
+    docName = null
+  ) {
     if (!data || typeof data !== "object") return data;
 
     // Handle arrays
     if (Array.isArray(data)) {
-      return data.map((item) => this.cleanDataFields(item, existingData));
+      return data.map((item) => this.cleanDataFields(item, existingData, originUrl, docName));
     }
 
     // Handle objects
@@ -232,7 +267,8 @@ class WebhookService {
             const processedItem = this.cleanDataFields(
               item,
               existingData,
-              originUrl
+              originUrl,
+              docName
             );
 
             // Generate a unique ID for this item
@@ -252,6 +288,44 @@ class WebhookService {
 
               // Add Image URL if it's missing
               if (!("ImageUrl" in processedItem)) newLabel["ImageUrl"] = "";
+              
+              // Special handling for olemisssports.com EventDate field
+              if (docName === "olemisssports.com" && itemKey === "EventDate" && processedItem[itemKey]) {
+                try {
+                  const eventDateStr = processedItem[itemKey];
+                  // Parse dates like "Jun 13\n(Fri)\n-\nJun 23\n(Mon)"
+                  const datePattern = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}).*?(?:-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})|$)/;
+                  const match = eventDateStr.match(datePattern);
+                  
+                  if (match) {
+                    // Extract start date components
+                    const startMonth = match[1];
+                    const startDay = match[2].padStart(2, '0');
+                    
+                    // Create start date in YYYY-MM-DD format
+                    const monthMap = {
+                      Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+                      Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+                    };
+                    
+                    newLabel["StartDate"] = `2025-${monthMap[startMonth]}-${startDay}`;
+                    
+                    // If there's an end date
+                    if (match[3] && match[4]) {
+                      const endMonth = match[3];
+                      const endDay = match[4].padStart(2, '0');
+                      newLabel["EndDate"] = `2025-${monthMap[endMonth]}-${endDay}`;
+                    } else {
+                      // If no end date, use start date as end date
+                      newLabel["EndDate"] = newLabel["StartDate"];
+                    }
+                    
+                    console.log(`[BrowseAI Webhook] Processed date range for olemisssports.com: ${newLabel["StartDate"]} to ${newLabel["EndDate"]}`);
+                  }
+                } catch (error) {
+                  console.error(`[BrowseAI Webhook] Error processing date for olemisssports.com:`, error);
+                }
+              }
             });
 
             return newLabel;
@@ -273,7 +347,7 @@ class WebhookService {
           // Recursively clean nested objects
           cleaned[key] =
             typeof value === "object"
-              ? this.cleanDataFields(value, existingData)
+              ? this.cleanDataFields(value, existingData, originUrl, docName)
               : value;
         }
       }
@@ -281,6 +355,8 @@ class WebhookService {
 
     return cleaned;
   }
+
+
 }
 
 module.exports = WebhookService;
