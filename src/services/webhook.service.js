@@ -309,9 +309,13 @@ class WebhookService {
               ) {
                 try {
                   const eventDateStr = processedItem[itemKey];
-                  // Parse dates like "Jun 13\n(Fri)\n-\nJun 23\n(Mon)"
+                  // Parse dates like "Jun 13\n(Fri)\n-\nJun 23\n(Mon)" or "May 28 (Wed) - May 31 (Sat)"
+                  console.log(
+                    "EventDate string to parse:",
+                    JSON.stringify(eventDateStr)
+                  );
                   const datePattern =
-                    /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}).*?(?:-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})|$)/;
+                    /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})(?:\s*\([^\)]*\))?(?:\s*[-\n]+\s*)?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})?/;
                   const match = eventDateStr.match(datePattern);
 
                   if (match) {
@@ -340,15 +344,33 @@ class WebhookService {
                     ] = `2025-${monthMap[startMonth]}-${startDay}`;
 
                     // If there's an end date
-                    if (match[3] && match[4]) {
-                      const endMonth = match[3];
-                      const endDay = match[4].padStart(2, "0");
-                      newLabel[
-                        "EndDate"
-                      ] = `2025-${monthMap[endMonth]}-${endDay}`;
+                    if (match[3]) {
+                      // The end date is in format "Month Day"
+                      const endDateParts = match[3].match(
+                        /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/
+                      );
+                      if (endDateParts) {
+                        const endMonth = endDateParts[1];
+                        const endDay = endDateParts[2].padStart(2, "0");
+                        newLabel[
+                          "EndDate"
+                        ] = `2025-${monthMap[endMonth]}-${endDay}`;
+                        console.log(
+                          `Found end date: ${endMonth} ${endDay} -> ${newLabel["EndDate"]}`
+                        );
+                      } else {
+                        // Couldn't parse end date, use start date
+                        newLabel["EndDate"] = newLabel["StartDate"];
+                        console.log(
+                          `Couldn't parse end date from: ${match[3]}, using start date`
+                        );
+                      }
                     } else {
                       // If no end date, use start date as end date
                       newLabel["EndDate"] = newLabel["StartDate"];
+                      console.log(
+                        `No end date found, using start date: ${newLabel["StartDate"]}`
+                      );
                     }
 
                     console.log(
