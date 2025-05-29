@@ -240,7 +240,9 @@ class WebhookService {
 
     // Handle arrays
     if (Array.isArray(data)) {
-      return data.map((item) => this.cleanDataFields(item, existingData, originUrl, docName));
+      return data.map((item) =>
+        this.cleanDataFields(item, existingData, originUrl, docName)
+      );
     }
 
     // Handle objects
@@ -288,42 +290,76 @@ class WebhookService {
 
               // Add Image URL if it's missing
               if (!("ImageUrl" in processedItem)) newLabel["ImageUrl"] = "";
-              
+
               // Special handling for olemisssports.com EventDate field
-              if (docName === "olemisssports.com" && itemKey === "EventDate" && processedItem[itemKey]) {
+              const isOleMissSite =
+                docName === "olemisssports.com" ||
+                originUrl.includes("olemisssports.com") ||
+                key === "Ole Sport" ||
+                newLabel.Title === "Ole Sport";
+
+              console.log(
+                `[BrowseAI Webhook] Checking date for: docName=${docName}, originUrl=${originUrl}, itemKey=${itemKey}, isOleMissSite=${isOleMissSite}, value=${processedItem[itemKey]}`
+              );
+
+              if (
+                isOleMissSite &&
+                itemKey === "EventDate" &&
+                processedItem[itemKey]
+              ) {
                 try {
                   const eventDateStr = processedItem[itemKey];
                   // Parse dates like "Jun 13\n(Fri)\n-\nJun 23\n(Mon)"
-                  const datePattern = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}).*?(?:-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})|$)/;
+                  const datePattern =
+                    /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}).*?(?:-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})|$)/;
                   const match = eventDateStr.match(datePattern);
-                  
+
                   if (match) {
                     // Extract start date components
                     const startMonth = match[1];
-                    const startDay = match[2].padStart(2, '0');
-                    
+                    const startDay = match[2].padStart(2, "0");
+
                     // Create start date in YYYY-MM-DD format
                     const monthMap = {
-                      Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
-                      Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+                      Jan: "01",
+                      Feb: "02",
+                      Mar: "03",
+                      Apr: "04",
+                      May: "05",
+                      Jun: "06",
+                      Jul: "07",
+                      Aug: "08",
+                      Sep: "09",
+                      Oct: "10",
+                      Nov: "11",
+                      Dec: "12",
                     };
-                    
-                    newLabel["StartDate"] = `2025-${monthMap[startMonth]}-${startDay}`;
-                    
+
+                    newLabel[
+                      "StartDate"
+                    ] = `2025-${monthMap[startMonth]}-${startDay}`;
+
                     // If there's an end date
                     if (match[3] && match[4]) {
                       const endMonth = match[3];
-                      const endDay = match[4].padStart(2, '0');
-                      newLabel["EndDate"] = `2025-${monthMap[endMonth]}-${endDay}`;
+                      const endDay = match[4].padStart(2, "0");
+                      newLabel[
+                        "EndDate"
+                      ] = `2025-${monthMap[endMonth]}-${endDay}`;
                     } else {
                       // If no end date, use start date as end date
                       newLabel["EndDate"] = newLabel["StartDate"];
                     }
-                    
-                    console.log(`[BrowseAI Webhook] Processed date range for olemisssports.com: ${newLabel["StartDate"]} to ${newLabel["EndDate"]}`);
+
+                    console.log(
+                      `[BrowseAI Webhook] Processed date range for olemisssports.com: ${newLabel["StartDate"]} to ${newLabel["EndDate"]}`
+                    );
                   }
                 } catch (error) {
-                  console.error(`[BrowseAI Webhook] Error processing date for olemisssports.com:`, error);
+                  console.error(
+                    `[BrowseAI Webhook] Error processing date for olemisssports.com:`,
+                    error
+                  );
                 }
               }
             });
@@ -355,8 +391,6 @@ class WebhookService {
 
     return cleaned;
   }
-
-
 }
 
 module.exports = WebhookService;
