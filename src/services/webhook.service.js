@@ -298,10 +298,6 @@ class WebhookService {
                 key === "Ole Sport" ||
                 newLabel.Title === "Ole Sport";
 
-              console.log(
-                `[BrowseAI Webhook] Checking date for: docName=${docName}, originUrl=${originUrl}, itemKey=${itemKey}, isOleMissSite=${isOleMissSite}, value=${processedItem[itemKey]}`
-              );
-
               if (
                 isOleMissSite &&
                 itemKey === "EventDate" &&
@@ -310,10 +306,6 @@ class WebhookService {
                 try {
                   const eventDateStr = processedItem[itemKey];
                   // Parse dates like "Jun 13\n(Fri)\n-\nJun 23\n(Mon)" or "May 28 (Wed) - May 31 (Sat)"
-                  console.log(
-                    "EventDate string to parse:",
-                    JSON.stringify(eventDateStr)
-                  );
                   const datePattern =
                     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})(?:\s*\([^\)]*\))?(?:\s*[-\n]+\s*)?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})?/;
                   const match = eventDateStr.match(datePattern);
@@ -339,9 +331,12 @@ class WebhookService {
                       Dec: "12",
                     };
 
+                    // Get current year
+                    const currentYear = new Date().getFullYear();
+                    
                     newLabel[
                       "StartDate"
-                    ] = `2025-${monthMap[startMonth]}-${startDay}`;
+                    ] = `${currentYear}-${monthMap[startMonth]}-${startDay}`;
 
                     // If there's an end date
                     if (match[3]) {
@@ -354,27 +349,18 @@ class WebhookService {
                         const endDay = endDateParts[2].padStart(2, "0");
                         newLabel[
                           "EndDate"
-                        ] = `2025-${monthMap[endMonth]}-${endDay}`;
-                        console.log(
-                          `Found end date: ${endMonth} ${endDay} -> ${newLabel["EndDate"]}`
-                        );
+                        ] = `${currentYear}-${monthMap[endMonth]}-${endDay}`;
                       } else {
                         // Couldn't parse end date, use start date
                         newLabel["EndDate"] = newLabel["StartDate"];
-                        console.log(
-                          `Couldn't parse end date from: ${match[3]}, using start date`
-                        );
                       }
                     } else {
                       // If no end date, use start date as end date
                       newLabel["EndDate"] = newLabel["StartDate"];
-                      console.log(
-                        `No end date found, using start date: ${newLabel["StartDate"]}`
-                      );
                     }
 
                     console.log(
-                      `[BrowseAI Webhook] Processed date range for olemisssports.com: ${newLabel["StartDate"]} to ${newLabel["EndDate"]}`
+                      `[BrowseAI Webhook] Processed date range: ${newLabel["StartDate"]} to ${newLabel["EndDate"]}`
                     );
                   }
                 } catch (error) {
@@ -389,17 +375,29 @@ class WebhookService {
             return newLabel;
           });
 
+          // Deduplicate items before adding them
+          const deduplicated = this.deduplicateItems(processedItems);
+          
+          if (processedItems.length !== deduplicated.length) {
+            console.log(
+              `[BrowseAI Webhook] Deduplicated ${processedItems.length - deduplicated.length} items from ${processedItems.length} total items`
+            );
+          }
+          
           // If the array already exists, append to it; otherwise create a new one
-          if (existingArray && Array.isArray(existingArray)) {
-            console.log(
-              `[BrowseAI Webhook] Found existing array for '${key}', appending ${processedItems.length} new items`
-            );
-            cleaned[key] = [...existingArray, ...processedItems];
+          if (existingArray && Array.isArray(existingArray)) {            
+            // Deduplicate against existing items
+            const finalItems = this.deduplicateAgainstExisting(deduplicated, existingArray);
+            
+            if (deduplicated.length !== finalItems.length) {
+              console.log(
+                `[BrowseAI Webhook] Filtered ${deduplicated.length - finalItems.length} items that already exist in the database`
+              );
+            }
+            
+            cleaned[key] = [...existingArray, ...finalItems];
           } else {
-            console.log(
-              `[BrowseAI Webhook] Creating new array for '${key}' with ${processedItems.length} items`
-            );
-            cleaned[key] = processedItems;
+            cleaned[key] = deduplicated;
           }
         } else {
           // Recursively clean nested objects
@@ -412,6 +410,64 @@ class WebhookService {
     }
 
     return cleaned;
+  }
+
+  /**
+   * Deduplicate items within a single array based on key fields
+   * @param {Array} items - Array of items to deduplicate
+   * @returns {Array} Deduplicated array
+   */
+  deduplicateItems(items) {
+    if (!Array.isArray(items) || items.length <= 1) return items;
+
+    // Create a map to track unique items
+    const uniqueMap = new Map();
+    const result = [];
+
+    for (const item of items) {
+      // Create a unique key based on important fields
+      // For olemisssports.com, we consider Title, EventDate, Location, and Sports as key fields
+      const keyFields = ['Title', 'EventDate', 'Location', 'Sports'].filter(field => item[field]);
+      const uniqueKey = keyFields.map(field => `${field}:${item[field]}`).join('|');
+
+      // If we haven't seen this unique key before, add it to the result
+      if (!uniqueMap.has(uniqueKey)) {
+        uniqueMap.set(uniqueKey, true);
+        result.push(item);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Deduplicate new items against existing items
+   * @param {Array} newItems - New items to check
+   * @param {Array} existingItems - Existing items to check against
+   * @returns {Array} Deduplicated new items
+   */
+  deduplicateAgainstExisting(newItems, existingItems) {
+    if (!Array.isArray(newItems) || newItems.length === 0 || !Array.isArray(existingItems) || existingItems.length === 0) {
+      return newItems;
+    }
+
+    // Create a map of existing items
+    const existingMap = new Map();
+    
+    for (const item of existingItems) {
+      // Create a unique key based on important fields
+      const keyFields = ['Title', 'EventDate', 'Location', 'Sports'].filter(field => item[field]);
+      const uniqueKey = keyFields.map(field => `${field}:${item[field]}`).join('|');
+      existingMap.set(uniqueKey, true);
+    }
+
+    // Filter out new items that already exist
+    return newItems.filter(item => {
+      const keyFields = ['Title', 'EventDate', 'Location', 'Sports'].filter(field => item[field]);
+      const uniqueKey = keyFields.map(field => `${field}:${item[field]}`).join('|');
+      
+      return !existingMap.has(uniqueKey);
+    });
   }
 }
 
