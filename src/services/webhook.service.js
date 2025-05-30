@@ -298,7 +298,13 @@ class WebhookService {
       };
 
       // Add Image URL if it's missing
-      if (!("ImageUrl" in processedItem)) newLabel["ImageUrl"] = "";
+      if (!("ImageUrl" in processedItem)) {
+        newLabel["ImageUrl"] = "";
+      } else {
+        // Clean ImageUrl by removing query parameters (everything after '?')
+        const imageUrl = processedItem["ImageUrl"] || "";
+        newLabel["ImageUrl"] = imageUrl.split("?")[0];
+      }
 
       // Special handling for olemisssports.com EventDate field
       this.processEventDate(newLabel, processedItem, docName, originUrl, key);

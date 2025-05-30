@@ -296,31 +296,31 @@ app.get(
   async (req, res) => {
     try {
       const { collection, documentId, subcategory } = req.params;
-      
+
       // Make subcategory case-insensitive by converting to lowercase
       // We'll search through all categories to find a case-insensitive match
       const result = await firestoreService.fetchCategoriesFromDocument(
         collection,
         documentId
       );
-      
+
       if (!result.success) {
         return res.status(404).json({ error: result.error });
       }
-      
+
       // Find the actual category name with correct case
       const subcategoryLower = subcategory.toLowerCase();
       const matchedCategory = result.categories.find(
-        category => category.toLowerCase() === subcategoryLower
+        (category) => category.toLowerCase() === subcategoryLower
       );
-      
+
       if (!matchedCategory) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           error: `Category '${subcategory}' not found`,
-          availableCategories: result.categories 
+          availableCategories: result.categories,
         });
       }
-      
+
       // Use the correctly cased category name for the data fetch
       const categoryResult = await firestoreService.fetchCategoryData(
         collection,
@@ -342,39 +342,34 @@ app.get(
   }
 );
 
-// Endpoint to fetch data from a specific category in a document
-app.get(
-  "/api/firestore/:collection/:documentId/:categoryName",
-  async (req, res) => {
-    try {
-      const { collection, documentId, categoryName } = req.params;
+// Endpoint to fetch only array names from a document
+app.get("/api/firestore/:collection/:documentId/", async (req, res) => {
+  try {
+    const { collection, documentId } = req.params;
 
-      // Skip if the categoryName is 'category' as it's handled by another route
-      if (categoryName === "category") {
-        return res
-          .status(404)
-          .json({ error: "Use /category endpoint instead" });
-      }
+    const result = await firestoreService.fetchCategoriesFromDocument(
+      collection,
+      documentId
+    );
 
-      const result = await firestoreService.fetchCategoryData(
-        collection,
-        documentId,
-        categoryName
-      );
-
-      if (!result.success) {
-        return res.status(404).json({ error: result.error });
-      }
-
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching category data from Firestore:", error);
-      res
-        .status(500)
-        .json({ error: "Failed to fetch category data from Firestore" });
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
     }
+
+    // Format the categories as requested
+    const formattedResponse = {
+      Categories: result.categories,
+    };
+
+    // Return the formatted array names
+    res.json(formattedResponse);
+  } catch (error) {
+    console.error("Error fetching array names from Firestore:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch array names from Firestore" });
   }
-);
+});
 
 /**
  * Starts the webhook middleware server.

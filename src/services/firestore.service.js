@@ -112,38 +112,32 @@ class FirestoreService {
    */
   async fetchCategoryData(collection, documentId, categoryName) {
     try {
-      const docRef = this.db.collection(collection).doc(documentId);
-      const doc = await docRef.get();
+      const doc = await this.db.collection(collection).doc(documentId).get();
 
       if (!doc.exists) {
         return { success: false, error: "Document not found" };
       }
 
-      const data = doc.data();
-      const docData = data.data || {};
+      const categoryData = doc.data()?.data?.[categoryName] || [];
 
-      // Check if the category exists and is an array
-      if (!docData[categoryName] || !Array.isArray(docData[categoryName])) {
+      if (!Array.isArray(categoryData)) {
         return {
           success: false,
           error: `Category '${categoryName}' not found or is not an array`,
         };
       }
 
-      // Sort the data in descending order by publishedDate or createdAt
-      const sortedData = [...docData[categoryName]].sort((a, b) => {
-        // Try to use publishedDate first, then fall back to createdAt
-        const dateA =
-          a.publishedDate || a.createdAt || a.createdAtFormatted || 0;
-        const dateB =
-          b.publishedDate || b.createdAt || b.createdAtFormatted || 0;
+      const sortedData = categoryData.slice().sort((a, b) => {
+        const getTime = (item) =>
+          item.publishedDate?.toMillis?.() ||
+          item.createdAt?.toMillis?.() ||
+          item.createdAtFormatted?.toMillis?.() ||
+          item.publishedDate ||
+          item.createdAt ||
+          item.createdAtFormatted ||
+          0;
 
-        // If the dates are Firestore timestamps, convert them to milliseconds
-        const timeA = dateA && dateA.toMillis ? dateA.toMillis() : dateA;
-        const timeB = dateB && dateB.toMillis ? dateB.toMillis() : dateB;
-
-        // Sort in descending order (newest first)
-        return timeB - timeA;
+        return getTime(b) - getTime(a);
       });
 
       return {
