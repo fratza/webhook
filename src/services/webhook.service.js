@@ -2,6 +2,9 @@ class WebhookService {
   constructor(admin, db) {
     this.admin = admin;
     this.db = db;
+
+    // Define key fields for deduplication once
+    this.keyFields = ["Title", "EventDate", "Location", "Sports"];
   }
 
   /**
@@ -75,16 +78,11 @@ class WebhookService {
       );
 
       if (docSnapshot.exists) {
-        console.log(
-          `[BrowseAI Webhook] Document '${docName}' already exists, updating text data...`
-        );
-
         const appendData = this.appendNewData(
           docSnapshot,
           processedData,
           originUrl
         );
-
         batch.set(textsRef, appendData);
       } else {
         // Document doesn't exist, create new document
@@ -106,7 +104,6 @@ class WebhookService {
         task.capturedScreenshots
       );
       batch.set(screenshotsRef, {
-        // taskId,
         data: screenshotsData,
       });
     }
@@ -127,16 +124,11 @@ class WebhookService {
       );
 
       if (docSnapshot.exists) {
-        console.log(
-          `[BrowseAI Webhook] Document '${docName}' already exists, updating data...`
-        );
-
         const appendData = this.appendNewData(
           docSnapshot,
           processedData,
           originUrl
         );
-
         batch.set(listsRef, appendData);
       } else {
         // Document doesn't exist, create new document
@@ -163,29 +155,26 @@ class WebhookService {
     };
   }
 
+  /**
+   * Append new data to existing document data
+   * @param {Object} docSnapshot - Firestore document snapshot
+   * @param {Object} processedData - New data to append
+   * @param {string} originUrl - Origin URL
+   * @returns {Object} Merged data
+   */
   appendNewData(docSnapshot, processedData, originUrl) {
     const existingData = docSnapshot.data();
-
-    // Create a deep copy of the existing data to work with
     const mergedData = JSON.parse(JSON.stringify(existingData));
 
-    // Ensure base structure exists
     if (!mergedData.data) mergedData.data = {};
 
-    // Process each key in the processed data
     Object.keys(processedData).forEach((key) => {
       const newValue = processedData[key];
 
       if (Array.isArray(newValue)) {
-        // If key already exists and is an array, append
         const existingArray = mergedData.data[key] || [];
         mergedData.data[key] = [...existingArray, ...newValue];
-
-        console.log(
-          `[BrowseAI Webhook] Appended ${newValue.length} new items to existing ${key} array`
-        );
       } else {
-        // For non-array values, just use the new value
         mergedData.data[key] = newValue;
       }
     });
@@ -203,12 +192,11 @@ class WebhookService {
 
     try {
       if (url && url !== "unknown") {
-        const urlObj = new URL(url); // Parse the URL
-        const parts = urlObj.hostname.split("."); // Split the hostname
+        const urlObj = new URL(url);
+        const parts = urlObj.hostname.split(".");
 
-        // Extract the last 2 segments of the domain
         if (parts.length >= 2) {
-          const domainParts = parts.slice(-2); // e.g., ['espn', 'com']
+          const domainParts = parts.slice(-2);
           docName = domainParts.join(".");
         } else {
           docName = urlObj.hostname;
@@ -236,6 +224,7 @@ class WebhookService {
     originUrl = "unknown",
     docName = null
   ) {
+    // Early return for non-objects
     if (!data || typeof data !== "object") return data;
 
     // Handle arrays
@@ -247,169 +236,175 @@ class WebhookService {
 
     // Handle objects
     const cleaned = {};
-
-    // Process object entries in order
     const entries = Object.entries(data);
-    for (let i = 0; i < entries.length; i++) {
-      const [key, value] = entries[i];
 
+    for (const [key, value] of entries) {
       // Skip position/Position and _STATUS fields
-      if (key.toLowerCase() !== "position" && key !== "_STATUS") {
-        // Check if this is an array (like Sports Headlines, etc.)
-        if (Array.isArray(value)) {
-          // Check if this array already exists in the existing data
-          const existingArray =
-            existingData &&
-            existingData.data &&
-            existingData.data.entries &&
-            existingData.data.entries[key];
+      if (key.toLowerCase() === "position" || key === "_STATUS") continue;
 
-          // Process the current array items
-          const processedItems = value.map((item, index) => {
-            const processedItem = this.cleanDataFields(
-              item,
-              existingData,
-              originUrl,
-              docName
-            );
-
-            // Generate a unique ID for this item
-            const uid = `${key
-              .toLowerCase()
-              .replace(/\s+/g, "-")}-${Date.now()}-${index}`;
-
-            const newLabel = {
-              uid: uid,
-              Title: key,
-              originUrl: originUrl, // Add originUrl to each item
-            };
-
-            // Add all existing fields from the processed item
-            Object.keys(processedItem).forEach((itemKey) => {
-              newLabel[itemKey] = processedItem[itemKey];
-
-              // Add Image URL if it's missing
-              if (!("ImageUrl" in processedItem)) newLabel["ImageUrl"] = "";
-
-              // Special handling for olemisssports.com EventDate field
-              const isOleMissSite =
-                docName === "olemisssports.com" ||
-                originUrl.includes("olemisssports.com") ||
-                key === "Ole Sport" ||
-                newLabel.Title === "Ole Sport";
-
-              if (
-                isOleMissSite &&
-                itemKey === "EventDate" &&
-                processedItem[itemKey]
-              ) {
-                try {
-                  const eventDateStr = processedItem[itemKey];
-                  // Parse dates like "Jun 13\n(Fri)\n-\nJun 23\n(Mon)" or "May 28 (Wed) - May 31 (Sat)"
-                  const datePattern =
-                    /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})(?:\s*\([^\)]*\))?(?:\s*[-\n]+\s*)?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})?/;
-                  const match = eventDateStr.match(datePattern);
-
-                  if (match) {
-                    // Extract start date components
-                    const startMonth = match[1];
-                    const startDay = match[2].padStart(2, "0");
-
-                    // Create start date in YYYY-MM-DD format
-                    const monthMap = {
-                      Jan: "01",
-                      Feb: "02",
-                      Mar: "03",
-                      Apr: "04",
-                      May: "05",
-                      Jun: "06",
-                      Jul: "07",
-                      Aug: "08",
-                      Sep: "09",
-                      Oct: "10",
-                      Nov: "11",
-                      Dec: "12",
-                    };
-
-                    // Get current year
-                    const currentYear = new Date().getFullYear();
-                    
-                    newLabel[
-                      "StartDate"
-                    ] = `${currentYear}-${monthMap[startMonth]}-${startDay}`;
-
-                    // If there's an end date
-                    if (match[3]) {
-                      // The end date is in format "Month Day"
-                      const endDateParts = match[3].match(
-                        /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/
-                      );
-                      if (endDateParts) {
-                        const endMonth = endDateParts[1];
-                        const endDay = endDateParts[2].padStart(2, "0");
-                        newLabel[
-                          "EndDate"
-                        ] = `${currentYear}-${monthMap[endMonth]}-${endDay}`;
-                      } else {
-                        // Couldn't parse end date, use start date
-                        newLabel["EndDate"] = newLabel["StartDate"];
-                      }
-                    } else {
-                      // If no end date, use start date as end date
-                      newLabel["EndDate"] = newLabel["StartDate"];
-                    }
-
-                    console.log(
-                      `[BrowseAI Webhook] Processed date range: ${newLabel["StartDate"]} to ${newLabel["EndDate"]}`
-                    );
-                  }
-                } catch (error) {
-                  console.error(
-                    `[BrowseAI Webhook] Error processing date for olemisssports.com:`,
-                    error
-                  );
-                }
-              }
-            });
-
-            return newLabel;
-          });
-
-          // Deduplicate items before adding them
-          const deduplicated = this.deduplicateItems(processedItems);
-          
-          if (processedItems.length !== deduplicated.length) {
-            console.log(
-              `[BrowseAI Webhook] Deduplicated ${processedItems.length - deduplicated.length} items from ${processedItems.length} total items`
-            );
-          }
-          
-          // If the array already exists, append to it; otherwise create a new one
-          if (existingArray && Array.isArray(existingArray)) {            
-            // Deduplicate against existing items
-            const finalItems = this.deduplicateAgainstExisting(deduplicated, existingArray);
-            
-            if (deduplicated.length !== finalItems.length) {
-              console.log(
-                `[BrowseAI Webhook] Filtered ${deduplicated.length - finalItems.length} items that already exist in the database`
-              );
-            }
-            
-            cleaned[key] = [...existingArray, ...finalItems];
-          } else {
-            cleaned[key] = deduplicated;
-          }
-        } else {
-          // Recursively clean nested objects
-          cleaned[key] =
-            typeof value === "object"
-              ? this.cleanDataFields(value, existingData, originUrl, docName)
-              : value;
-        }
+      // Process arrays (like Sports Headlines, etc.)
+      if (Array.isArray(value)) {
+        cleaned[key] = this.processArrayField(
+          key,
+          value,
+          existingData,
+          originUrl,
+          docName
+        );
+      } else {
+        // Recursively clean nested objects
+        cleaned[key] =
+          typeof value === "object"
+            ? this.cleanDataFields(value, existingData, originUrl, docName)
+            : value;
       }
     }
 
     return cleaned;
+  }
+
+  /**
+   * Process an array field, handling deduplication and enrichment
+   * @param {string} key - The field key
+   * @param {Array} array - The array to process
+   * @param {Object} existingData - Existing data to check against
+   * @param {string} originUrl - Origin URL
+   * @param {string} docName - Document name
+   * @returns {Array} Processed array
+   */
+  processArrayField(key, array, existingData, originUrl, docName) {
+    // Check if this array already exists in the existing data
+    const existingArray = existingData?.data?.entries?.[key];
+
+    // Process the current array items
+    const processedItems = array.map((item, index) => {
+      const processedItem = this.cleanDataFields(
+        item,
+        existingData,
+        originUrl,
+        docName
+      );
+
+      // Generate a unique ID for this item
+      const uid = `${key
+        .toLowerCase()
+        .replace(/\s+/g, "-")}-${Date.now()}-${index}`;
+
+      const newLabel = {
+        uid,
+        Title: key,
+        originUrl, // Add originUrl to each item
+        ...processedItem,
+      };
+
+      // Add Image URL if it's missing
+      if (!("ImageUrl" in processedItem)) newLabel["ImageUrl"] = "";
+
+      // Special handling for olemisssports.com EventDate field
+      this.processEventDate(newLabel, processedItem, docName, originUrl, key);
+
+      return newLabel;
+    });
+
+    // Deduplicate items before adding them
+    const deduplicated = this.deduplicateItems(processedItems);
+
+    // If the array already exists, append to it; otherwise create a new one
+    if (existingArray && Array.isArray(existingArray)) {
+      // Deduplicate against existing items
+      const finalItems = this.deduplicateAgainstExisting(
+        deduplicated,
+        existingArray
+      );
+
+      return [...existingArray, ...finalItems];
+    }
+
+    return deduplicated;
+  }
+
+  /**
+   * Process event date for special sites like olemisssports.com
+   * @param {Object} newLabel - The item being processed
+   * @param {Object} processedItem - The processed item data
+   * @param {string} docName - Document name
+   * @param {string} originUrl - Origin URL
+   * @param {string} key - The field key
+   */
+  processEventDate(newLabel, processedItem, docName, originUrl, key) {
+    const isOleMissSite =
+      docName === "olemisssports.com" ||
+      originUrl.includes("olemisssports.com") ||
+      key === "Ole Sport" ||
+      newLabel.Title === "Ole Sport";
+
+    if (!isOleMissSite || !processedItem.EventDate) return;
+
+    try {
+      const eventDateStr = processedItem.EventDate;
+      // Parse dates like "Jun 13\n(Fri)\n-\nJun 23\n(Mon)" or "May 28 (Wed) - May 31 (Sat)"
+      const datePattern =
+        /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})(?:\s*\([^)]*\))?(?:\s*[-\n]+)?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})?/;
+      const match = eventDateStr.match(datePattern);
+
+      if (!match) return;
+
+      // Month mapping
+      const monthMap = {
+        Jan: "01",
+        Feb: "02",
+        Mar: "03",
+        Apr: "04",
+        May: "05",
+        Jun: "06",
+        Jul: "07",
+        Aug: "08",
+        Sep: "09",
+        Oct: "10",
+        Nov: "11",
+        Dec: "12",
+      };
+
+      // Get current year
+      const currentYear = new Date().getFullYear();
+
+      // Extract start date components
+      const startMonth = match[1];
+      const startDay = match[2].padStart(2, "0");
+      newLabel[
+        "StartDate"
+      ] = `${currentYear}-${monthMap[startMonth]}-${startDay}`;
+
+      // Process end date if present
+      if (match[3]) {
+        const endDateParts = match[3].match(
+          /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/
+        );
+        if (endDateParts) {
+          const endMonth = endDateParts[1];
+          const endDay = endDateParts[2].padStart(2, "0");
+          newLabel[
+            "EndDate"
+          ] = `${currentYear}-${monthMap[endMonth]}-${endDay}`;
+        } else {
+          newLabel["EndDate"] = newLabel["StartDate"];
+        }
+      } else {
+        newLabel["EndDate"] = newLabel["StartDate"];
+      }
+    } catch (error) {
+      console.error(`[BrowseAI Webhook] Error processing date:`, error);
+    }
+  }
+
+  /**
+   * Generate a unique key for an item based on specified fields
+   * @param {Object} item - The item to generate a key for
+   * @returns {string} A unique key string
+   */
+  generateItemKey(item) {
+    const filteredFields = this.keyFields.filter((field) => item[field]);
+    return filteredFields.map((field) => `${field}:${item[field]}`).join("|");
   }
 
   /**
@@ -420,17 +415,12 @@ class WebhookService {
   deduplicateItems(items) {
     if (!Array.isArray(items) || items.length <= 1) return items;
 
-    // Create a map to track unique items
     const uniqueMap = new Map();
     const result = [];
 
     for (const item of items) {
-      // Create a unique key based on important fields
-      // For olemisssports.com, we consider Title, EventDate, Location, and Sports as key fields
-      const keyFields = ['Title', 'EventDate', 'Location', 'Sports'].filter(field => item[field]);
-      const uniqueKey = keyFields.map(field => `${field}:${item[field]}`).join('|');
+      const uniqueKey = this.generateItemKey(item);
 
-      // If we haven't seen this unique key before, add it to the result
       if (!uniqueMap.has(uniqueKey)) {
         uniqueMap.set(uniqueKey, true);
         result.push(item);
@@ -447,27 +437,26 @@ class WebhookService {
    * @returns {Array} Deduplicated new items
    */
   deduplicateAgainstExisting(newItems, existingItems) {
-    if (!Array.isArray(newItems) || newItems.length === 0 || !Array.isArray(existingItems) || existingItems.length === 0) {
+    if (
+      !Array.isArray(newItems) ||
+      newItems.length === 0 ||
+      !Array.isArray(existingItems) ||
+      existingItems.length === 0
+    ) {
       return newItems;
     }
 
     // Create a map of existing items
     const existingMap = new Map();
-    
+
     for (const item of existingItems) {
-      // Create a unique key based on important fields
-      const keyFields = ['Title', 'EventDate', 'Location', 'Sports'].filter(field => item[field]);
-      const uniqueKey = keyFields.map(field => `${field}:${item[field]}`).join('|');
-      existingMap.set(uniqueKey, true);
+      existingMap.set(this.generateItemKey(item), true);
     }
 
     // Filter out new items that already exist
-    return newItems.filter(item => {
-      const keyFields = ['Title', 'EventDate', 'Location', 'Sports'].filter(field => item[field]);
-      const uniqueKey = keyFields.map(field => `${field}:${item[field]}`).join('|');
-      
-      return !existingMap.has(uniqueKey);
-    });
+    return newItems.filter(
+      (item) => !existingMap.has(this.generateItemKey(item))
+    );
   }
 }
 
