@@ -196,6 +196,7 @@ app.post("/api/webhook/:webhookId", async (req, res) => {
   try {
     if (webhookId === "browseAI") {
       console.log(`Initiating ${webhookId} process...`);
+      console.log("Request body:", req.body);
       const result = await webhookService.processBrowseAIWebhook(req.body);
       res.status(200).json(result);
     } else {
