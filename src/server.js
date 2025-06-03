@@ -3,12 +3,25 @@
  * This file imports the Express app and starts the server
  */
 const app = require('./app');
+const cors = require('cors');
+
+// Ensure CORS is applied at the server level as well
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // Start the server if not imported by another module
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`[SERVER] Server is running on http://localhost:${PORT}`);
+  });
+  
+  // Handle server errors
+  server.on('error', (error) => {
+    console.error(`[SERVER ERROR] ${error.message}`);
   });
 }
 

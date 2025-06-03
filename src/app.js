@@ -1,19 +1,19 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const dotenv = require('dotenv');
+const express = require("express");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
 /** Initialize environment */
 dotenv.config();
-const env = process.env.NODE_ENV || 'development';
+const env = process.env.NODE_ENV || "development";
 const PORT = process.env.PORT || 3000;
 
 /** Import routers */
-const WEBHOOK_ROUTER = require('./routes/webhook');
-const FIRESTORE_ROUTER = require('./routes/firestore');
+const WEBHOOK_ROUTER = require("./routes/webhook");
+const FIRESTORE_ROUTER = require("./routes/firestore");
 
 /** Initialize Firebase Admin */
-const admin = require('./config/firebase');
+const admin = require("./config/firebase");
 
 /** Initialize Express app */
 const app = express();
@@ -22,23 +22,44 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-/** Enable CORS for all origins */
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+/** Enable CORS for all origins with explicit configuration */
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Content-Range", "X-Content-Range"],
+  credentials: false,
+  maxAge: 86400, // 24 hours in seconds
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+};
 
-// Handle OPTIONS preflight requests
-app.options('*', cors());
+// Apply CORS middleware to all routes
+app.use(cors(corsOptions));
+
+// Handle OPTIONS preflight requests for all routes
+app.options("*", cors(corsOptions));
+
+// Add custom CORS headers as a fallback
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  next();
+});
 
 /** Middleware to log requests */
-app.use('/', (req, res, next) => {
-    console.log(`[INCOMING REQUEST] ${req.method} ${req.url}`);
-    res.on('finish', () => {
-        console.log(`[REQUEST SUCCESSFUL] ${req.method} ${req.url} with status ${res.statusCode}`);
-    });
-    next();
+app.use("/", (req, res, next) => {
+  console.log(`[INCOMING REQUEST] ${req.method} ${req.url}`);
+  res.on("finish", () => {
+    console.log(
+      `[REQUEST SUCCESSFUL] ${req.method} ${req.url} with status ${res.statusCode}`
+    );
+  });
+  next();
 });
 
 /** Log environment variables */
@@ -48,29 +69,29 @@ console.log(`[ENVIRONMENT:PORT] ${env}:${PORT}`);
  * Route serving webhook controller.
  * @name /api/webhooks
  */
-app.use('/api/webhooks', WEBHOOK_ROUTER);
+app.use("/api/webhooks", WEBHOOK_ROUTER);
 
 /**
  * Route serving firestore operations.
  * @name /api/firestore
  */
-app.use('/api/firestore', FIRESTORE_ROUTER);
+app.use("/api/firestore", FIRESTORE_ROUTER);
 
 /**
  * Global error handlers for unhandled exceptions and rejections
  */
-process.on('unhandledRejection', (reason, promise) => {
-    console.error(`[ERROR - Unhandled Rejection]: ${reason}`);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error(`[ERROR - Unhandled Rejection]: ${reason}`);
 });
-process.on('uncaughtException', (error) => {
-    console.error(`[ERROR - Uncaught Exception]: ${error.message}`);
+process.on("uncaughtException", (error) => {
+  console.error(`[ERROR - Uncaught Exception]: ${error.message}`);
 });
 
 /**
  * Start server
  */
 app.listen(PORT, () => {
-    console.log(`[SERVER] Server is running on http://localhost:${PORT}`);
+  console.log(`[SERVER] Server is running on http://localhost:${PORT}`);
 });
 
 module.exports = app;
