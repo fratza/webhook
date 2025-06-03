@@ -5,15 +5,9 @@ const cors = require('cors');
 const FIRESTORE_ROUTER = express.Router();
 const firestoreService = new FirestoreService();
 
-// Apply CORS middleware specifically to this router with the same configuration as app.js
-const corsOptions = {
-  origin: "*",
-  methods: "GET,POST,PUT,DELETE,OPTIONS",
-  allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-};
-
-FIRESTORE_ROUTER.use(cors(corsOptions));
-FIRESTORE_ROUTER.options("*", cors(corsOptions));
+// Apply CORS middleware to this router
+FIRESTORE_ROUTER.use(cors());
+FIRESTORE_ROUTER.options("*", cors());
 
 /**
  * Test endpoint to verify CORS configuration
@@ -24,11 +18,6 @@ FIRESTORE_ROUTER.options("*", cors(corsOptions));
  * @returns {void} Sends a JSON response with CORS headers
  */
 FIRESTORE_ROUTER.get('/cors-test', (req, res) => {
-  // Set CORS headers manually to ensure they're present
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
   res.json({
     success: true,
     message: 'CORS test successful',
@@ -50,11 +39,6 @@ FIRESTORE_ROUTER.get('/cors-test', (req, res) => {
  */
 FIRESTORE_ROUTER.get('/:collection', async (req, res) => {
   try {
-    // Explicitly set CORS headers for this specific endpoint
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    
     const { collection } = req.params;
     console.log(`[FIRESTORE] Listing all documents in collection ${collection}`);
     
@@ -102,11 +86,6 @@ FIRESTORE_ROUTER.get('/:collection', async (req, res) => {
  */
 FIRESTORE_ROUTER.get('/:collection/:documentId', async (req, res) => {
   try {
-    // Explicitly set CORS headers for this specific endpoint
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    
     const { collection, documentId } = req.params;
     console.log(`[FIRESTORE] Getting document ${documentId} from collection ${collection}`);
     

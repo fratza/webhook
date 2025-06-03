@@ -12,8 +12,7 @@ const PORT = process.env.PORT || 3000;
 const WEBHOOK_ROUTER = require("./routes/webhook");
 const FIRESTORE_ROUTER = require("./routes/firestore");
 
-/** Import custom middleware */
-const corsMiddleware = require("./middleware/cors.middleware");
+
 
 /** Initialize Firebase Admin */
 const admin = require("./config/firebase");
@@ -21,18 +20,19 @@ const admin = require("./config/firebase");
 /** Initialize Express app */
 const app = express();
 
-/** Apply custom CORS middleware as the very first middleware */
-app.use(corsMiddleware);
-
 /** Middleware for parsing request bodies */
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Apply standard CORS middleware as a backup
-app.use(cors());
+/** Simple CORS configuration */
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+}));
 
-// Handle preflight requests for all routes
-app.options("*", cors());
+// Handle preflight requests
+app.options('*', cors());
 
 /** Middleware to log requests */
 app.use("/", (req, res, next) => {
