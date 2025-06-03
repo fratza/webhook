@@ -5,12 +5,15 @@ const cors = require('cors');
 const FIRESTORE_ROUTER = express.Router();
 const firestoreService = new FirestoreService();
 
-// Apply CORS middleware specifically to this router
-FIRESTORE_ROUTER.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Apply CORS middleware specifically to this router with the same configuration as app.js
+const corsOptions = {
+  origin: "*",
+  methods: "GET,POST,PUT,DELETE,OPTIONS",
+  allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+};
+
+FIRESTORE_ROUTER.use(cors(corsOptions));
+FIRESTORE_ROUTER.options("*", cors(corsOptions));
 
 /**
  * Endpoint to get a document by ID from a collection

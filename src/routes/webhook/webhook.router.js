@@ -1,8 +1,19 @@
 const express = require('express');
 const { BrowseAIService } = require('../../services/browseAI/browseAI.service');
+const cors = require('cors');
 
 const WEBHOOK_ROUTER = express.Router();
 const browseAIService = new BrowseAIService();
+
+// Apply CORS middleware specifically to this router with the same configuration as app.js
+const corsOptions = {
+  origin: "*",
+  methods: "GET,POST,PUT,DELETE,OPTIONS",
+  allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+};
+
+WEBHOOK_ROUTER.use(cors(corsOptions));
+WEBHOOK_ROUTER.options("*", cors(corsOptions));
 
 /**
  * Handles incoming POST requests to dynamic webhook endpoints under `/api/webhooks/:webhookId`.
