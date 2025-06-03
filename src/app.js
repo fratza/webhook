@@ -22,7 +22,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const corsOptions = {
-  origin: "https://ntv360-f37b9.web.app", // 🔒 Specific origin
+  origin: [
+    "https://ntv360-f37b9.web.app",
+    "https://ntv360-f37b9.firebaseapp.com",
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: [
     "Origin",
@@ -31,6 +34,8 @@ const corsOptions = {
     "Accept",
     "Authorization",
   ],
+  credentials: true,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
