@@ -16,6 +16,31 @@ FIRESTORE_ROUTER.use(cors(corsOptions));
 FIRESTORE_ROUTER.options("*", cors(corsOptions));
 
 /**
+ * Test endpoint to verify CORS configuration
+ * 
+ * @route GET /cors-test
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {void} Sends a JSON response with CORS headers
+ */
+FIRESTORE_ROUTER.get('/cors-test', (req, res) => {
+  // Set CORS headers manually to ensure they're present
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  res.json({
+    success: true,
+    message: 'CORS test successful',
+    headers: {
+      'access-control-allow-origin': res.getHeader('Access-Control-Allow-Origin'),
+      'access-control-allow-methods': res.getHeader('Access-Control-Allow-Methods'),
+      'access-control-allow-headers': res.getHeader('Access-Control-Allow-Headers')
+    }
+  });
+});
+
+/**
  * Endpoint to get a document by ID from a collection
  * 
  * @route GET /:collection/:documentId
@@ -25,6 +50,11 @@ FIRESTORE_ROUTER.options("*", cors(corsOptions));
  */
 FIRESTORE_ROUTER.get('/:collection/:documentId', async (req, res) => {
   try {
+    // Explicitly set CORS headers for this specific endpoint
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    
     const { collection, documentId } = req.params;
     console.log(`[FIRESTORE] Getting document ${documentId} from collection ${collection}`);
     
