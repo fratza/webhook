@@ -22,34 +22,15 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-/** Enable CORS for all origins with explicit configuration */
 const corsOptions = {
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  exposedHeaders: ["Content-Range", "X-Content-Range"],
-  credentials: false,
-  maxAge: 86400, // 24 hours in seconds
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
+  origin: "*", // Or "*" if public API
+  methods: "GET,POST,PUT,DELETE,OPTIONS",
+  allowedHeaders:
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization",
 };
 
-// Apply CORS middleware to all routes
 app.use(cors(corsOptions));
-
-// Handle OPTIONS preflight requests for all routes
-app.options("*", cors(corsOptions));
-
-// Add custom CORS headers as a fallback
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  next();
-});
+app.options("*", cors(corsOptions)); // Handle preflight requests
 
 /** Middleware to log requests */
 app.use("/", (req, res, next) => {
