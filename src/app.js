@@ -12,44 +12,27 @@ const PORT = process.env.PORT || 3000;
 const WEBHOOK_ROUTER = require("./routes/webhook");
 const FIRESTORE_ROUTER = require("./routes/firestore");
 
+/** Import custom middleware */
+const corsMiddleware = require("./middleware/cors.middleware");
+
 /** Initialize Firebase Admin */
 const admin = require("./config/firebase");
 
 /** Initialize Express app */
 const app = express();
 
+/** Apply custom CORS middleware as the very first middleware */
+app.use(corsMiddleware);
+
 /** Middleware for parsing request bodies */
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Define comprehensive CORS options
-const corsOptions = {
-  origin: "*",  // Allow all origins
-  methods: "GET,POST,PUT,DELETE,OPTIONS",
-  allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-  credentials: false,
-  maxAge: 86400 // 24 hours in seconds - caches preflight request results
-};
-
-// Apply CORS middleware
-app.use(cors(corsOptions));
+// Apply standard CORS middleware as a backup
+app.use(cors());
 
 // Handle preflight requests for all routes
-app.options("*", cors(corsOptions));
-
-// Add custom CORS headers as a fallback
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  
-  // Handle preflight OPTIONS requests
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  
-  next();
-});
+app.options("*", cors());
 
 /** Middleware to log requests */
 app.use("/", (req, res, next) => {

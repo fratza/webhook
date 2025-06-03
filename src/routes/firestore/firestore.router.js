@@ -41,6 +41,58 @@ FIRESTORE_ROUTER.get('/cors-test', (req, res) => {
 });
 
 /**
+ * Endpoint to list all documents in a collection
+ * 
+ * @route GET /:collection
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {void} Sends a JSON response with all documents in the collection
+ */
+FIRESTORE_ROUTER.get('/:collection', async (req, res) => {
+  try {
+    // Explicitly set CORS headers for this specific endpoint
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    
+    const { collection } = req.params;
+    console.log(`[FIRESTORE] Listing all documents in collection ${collection}`);
+    
+    const collectionRef = firestoreService.db.collection(collection);
+    const snapshot = await collectionRef.get();
+    
+    if (snapshot.empty) {
+      console.log(`[FIRESTORE] No documents found in collection ${collection}`);
+      return res.json({
+        success: true,
+        message: `No documents found in collection ${collection}`,
+        data: []
+      });
+    }
+    
+    const documents = [];
+    snapshot.forEach(doc => {
+      documents.push({
+        id: doc.id,
+        data: doc.data()
+      });
+    });
+    
+    console.log(`[FIRESTORE] Found ${documents.length} documents in collection ${collection}`);
+    res.json({
+      success: true,
+      count: documents.length,
+      data: documents
+    });
+  } catch (error) {
+    console.error("Error listing documents from Firestore:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to list documents from Firestore" });
+  }
+});
+
+/**
  * Endpoint to get a document by ID from a collection
  * 
  * @route GET /:collection/:documentId
