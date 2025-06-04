@@ -40,6 +40,20 @@ app.use("/", (req, res, next) => {
 console.log(`[ENVIRONMENT:PORT] ${env}:${PORT}`);
 
 /**
+ * API checkup endpoint to verify the API is working
+ * @name /api/checkup
+ */
+app.get("/api/checkup", (req, res) => {
+  const status = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    environment: env,
+    uptime: process.uptime(),
+  };
+  res.status(200).json(status);
+});
+
+/**
  * Route serving webhook controller.
  * @name /api/webhooks
  */
