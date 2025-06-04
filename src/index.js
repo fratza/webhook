@@ -374,6 +374,20 @@ app.get("/api/firestore/:collection/:documentId/", async (req, res) => {
 });
 
 /**
+ * API checkup endpoint to verify the API is working
+ * @name /api/checkup
+ */
+app.get("/api/checkup", (req, res) => {
+  const status = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
+    uptime: process.uptime()
+  };
+  res.status(200).json(status);
+});
+
+/**
  * Starts the webhook middleware server.
  *
  * @route GET /api/webhook
