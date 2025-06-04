@@ -21,25 +21,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const corsOptions = {
-  origin: [
-    "https://ntv360-f37b9.web.app",
-    "https://ntv360-f37b9.firebaseapp.com",
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Origin",
-    "X-Requested-With",
-    "Content-Type",
-    "Accept",
-    "Authorization",
-  ],
-  credentials: true,
-  optionsSuccessStatus: 204,
-};
-
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+/** Enable CORS for all routes */
+app.use(cors());
+app.options("*", cors());
 
 /** Middleware to log requests */
 app.use("/", (req, res, next) => {
