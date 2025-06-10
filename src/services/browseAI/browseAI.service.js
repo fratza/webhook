@@ -1,6 +1,10 @@
-const { admin, db } = require('../../config/firebase');
-const { extractDomainIdentifier, cleanDataFields, appendNewData } = require('../../utils/browseai');
-const { convertToFirestoreFormat } = require('../../utils/firestore');
+const { admin, db } = require("../../config/firebase");
+const {
+  extractDomainIdentifier,
+  cleanDataFields,
+  appendNewData,
+} = require("../../utils/browseai");
+const { convertToFirestoreFormat } = require("../../utils/firestore");
 
 /**
  * Service class for handling BrowseAI webhook operations
@@ -51,11 +55,7 @@ class BrowseAIService {
       );
 
       if (docSnapshot.exists) {
-        const appendData = appendNewData(
-          docSnapshot,
-          processedData,
-          originUrl
-        );
+        const appendData = appendNewData(docSnapshot, processedData, originUrl);
         batch.set(textsRef, appendData);
       } else {
         // Document doesn't exist, create new document
@@ -111,10 +111,11 @@ class BrowseAIService {
       }
     }
 
-    // Commit all the batch operations
     try {
       await batch.commit();
-      console.log(`[BrowseAI Webhook] Batch committed successfully for ${docName}`);
+      console.log(
+        `[BrowseAI Webhook] Batch committed successfully for ${docName}`
+      );
       return {
         success: true,
         message: "Webhook data processed successfully",
